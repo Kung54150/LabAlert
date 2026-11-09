@@ -12,7 +12,7 @@
 - เข้าผ่าน LINE: ระบุตัวตนด้วยบัญชี LINE / เข้าผ่านเว็บ: รหัสแผนกตัวเลข 4 หลัก
 
 ## ติดตั้ง
-1. สร้าง Google Sheet ใหม่ → Extensions → Apps Script → วางไฟล์ใน `src/` (`Code.gs`, `Index.html`, `appsscript.json`)
+1. สร้าง Google Sheet ใหม่ → Extensions → Apps Script → วางไฟล์ `Code.gs`, `Index.html`, `appsscript.json` (อยู่หน้าแรกของ repo)
 2. Project Settings → Script Properties ใส่ค่า `LINE_TOKEN`, `GROUP_ID`, `DEPT_PIN`, `LIFF_ID`, `LOGIN_CHANNEL_ID` (ห้ามใส่ลงในโค้ดหรือ GitHub)
 3. รันฟังก์ชัน `setup` หนึ่งครั้ง (สร้างชีตและตัวตั้งเวลาทุก 1 นาที)
 4. Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone)
@@ -20,8 +20,8 @@
 6. รัน `testPush` ทดสอบส่งเข้ากลุ่ม และ `postMenu` ส่งเมนูสแกน/ดูคิว แล้วปักหมุดเป็นประกาศในกลุ่ม
 
 ## หน้าสแกนกล้อง (GitHub Pages)
-กล้องสดใช้ไม่ได้ในหน้า Apps Script จึงแยกหน้าสแกนไว้ที่ `docs/scan.html`
-1. Repo Settings → Pages → Source: Deploy from a branch → เลือกบรานช์และโฟลเดอร์ `/docs` → Save
+กล้องสดใช้ไม่ได้ในหน้า Apps Script จึงแยกหน้าสแกนไว้ที่ `scan.html`
+1. Repo Settings → Pages → Source: Deploy from a branch → เลือกบรานช์ `main` และโฟลเดอร์ `/ (root)` → Save
 2. ได้ลิงก์ เช่น `https://<ชื่อ>.github.io/LabAlert/scan.html`
 3. ใส่ลิงก์นั้นใน Script Properties ชื่อ `SCANNER_URL`
 4. ในหน้าสแกนของแอปจะมีปุ่ม "สแกนด้วยกล้อง (เปิดหน้าสแกน)" สแกนแล้วระบบส่ง HN กลับมากรอกให้ และจำการเข้าสู่ระบบไว้ ไม่ต้องใส่รหัสซ้ำ
