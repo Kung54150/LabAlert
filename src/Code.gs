@@ -7,6 +7,7 @@
  *   DEPT_PIN          รหัสแผนก (ตัวเลข) สำหรับเข้าใช้ผ่านแอป/เว็บ
  *   LIFF_ID           LIFF ID ของแอปนี้
  *   LOGIN_CHANNEL_ID  Channel ID ของ LINE Login channel ที่ LIFF สังกัดอยู่
+ *   SCANNER_URL       (ไม่บังคับ) ลิงก์หน้าสแกนบน GitHub Pages เช่น https://kung54150.github.io/LabAlert/scan.html
  *   SHEET_ID          (ไม่บังคับ) ถ้าไม่ได้ผูกสคริปต์กับชีต
  */
 const REPEAT_MIN = 10;          // แจ้งซ้ำเมื่อไม่มีใครตอบ
@@ -26,7 +27,18 @@ function ss_() {
   const id = prop_('SHEET_ID');
   return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
 }
-function sheet_(name) { return ss_().getSheetByName(name); }
+function sheet_(name) {
+  const ss = ss_();
+  if (!ss) throw new Error('ไม่พบชีต: ให้สร้างสคริปต์จากเมนู Extensions > Apps Script ในไฟล์ Google Sheet หรือตั้ง SHEET_ID');
+  let sh = ss.getSheetByName(name);
+  if (!sh) { // สร้างแท็บที่ขาดให้เองถ้ายังไม่ได้รัน setup
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, SCHEMA[name].length).setValues([SCHEMA[name]]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    if (name === 'Patients') sh.getRange('C:C').setNumberFormat('@');
+  }
+  return sh;
+}
 
 function readAll_(name) {
   const sh = sheet_(name), vals = sh.getDataRange().getValues();
@@ -78,7 +90,8 @@ function setup() {
 /* ---------- Web App ---------- */
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  const cfg = JSON.stringify({ liffId: prop_('LIFF_ID'), mode: String(p.mode || ''), hn: String(p.hn || '') })
+  const cfg = JSON.stringify({ liffId: prop_('LIFF_ID'), mode: String(p.mode || ''), hn: String(p.hn || ''),
+    scannerUrl: prop_('SCANNER_URL'), appUrl: ScriptApp.getService().getUrl() })
     .replace(/</g, '\\u003c');
   const t = HtmlService.createTemplateFromFile('Index');
   t.cfg = cfg;
@@ -170,7 +183,7 @@ function apiAdd(auth, hn, waitMin) {
     const now = new Date();
     append_('Patients', {
       id: Utilities.getUuid(), queue: queue, hn: hn, registered_at: now, wait_min: waitMin,
-      next_alert_at: new Date(now.getTime() + waitMin * 60000), alert_count: 0, registered_by: w.name + ' (' + w.via + ')',
+      next_alert_at: new Date(now.getTime() + waitMin * 60000), alert_count: 0, registered_by: w.name,
     });
     log_(w.name, 'register', 'HN ' + hn + ' wait ' + waitMin + ' via ' + w.via);
     return snapshot_();
@@ -202,7 +215,7 @@ function apiPrint(auth, id) {
   return withLock_(() => {
     const p = findActive_(id);
     // TODO: เมื่อมีรายการ Lab ให้ตรวจว่าผลออกครบก่อนจึงอนุญาตให้พิมพ์
-    update_('Patients', p._row, { printed_at: new Date(), printed_by: w.name + ' (' + w.via + ')' });
+    update_('Patients', p._row, { printed_at: new Date(), printed_by: w.name });
     log_(w.name, 'print', 'HN ' + p.hn);
     return snapshot_();
   });
