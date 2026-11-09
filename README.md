@@ -25,6 +25,12 @@
 2. เปิด `https://<ชื่อบัญชี>.github.io/LabAlert/` ครั้งแรกจะให้วาง Web app URL ของ Apps Script (จำไว้ในเครื่อง) แล้วใส่รหัสแผนก
 3. กดสแกน → อนุญาตกล้อง
 
+### ติดตั้งเป็นแอปบนหน้าจอหลัก (PWA)
+- **Android (Chrome):** เปิดลิงก์ แล้วกดปุ่ม "ติดตั้ง" ที่ขึ้นในแอป (หรือเมนูสามจุด → ติดตั้งแอป / เพิ่มไปยังหน้าจอหลัก)
+- **iPhone (Safari):** แตะปุ่มแชร์ → เพิ่มไปยังหน้าจอโฮม
+- **PC (Chrome/Edge):** กดไอคอนติดตั้งที่ช่องที่อยู่ หรือเมนู → ติดตั้ง LabAlert
+- ไอคอนและชื่อมาจาก `manifest.webmanifest` และไฟล์ `icon-*.png` ตัวแอปโหลดหน้าล่าสุดจากเน็ตก่อนเสมอ (`sw.js`) ไม่เก็บข้อมูลผู้ป่วยในแคช ใช้งานโดยไม่มีเน็ตไม่ได้
+
 ### 3. LINE (ภายหลัง)
 - สร้าง LINE Login channel แล้วสร้าง LIFF โดยตั้ง Endpoint URL เป็นลิงก์ GitHub Pages ข้างบน เปิด scope `profile`
 - ใส่ `LIFF_ID`, `LOGIN_CHANNEL_ID`, `LINE_TOKEN`, `GROUP_ID` ใน Script Properties แล้วรัน `testPush`, `postMenu`
