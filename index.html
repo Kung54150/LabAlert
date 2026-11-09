@@ -64,6 +64,7 @@ button:disabled{opacity:.45;cursor:default}
 .chip.wait{background:var(--warn-soft);color:var(--warn)}.chip.done{background:var(--ok-soft);color:var(--ok)}.chip.stale{background:var(--sunk);color:var(--muted)}
 @keyframes blink{50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.chip.due{animation:none;outline:2px solid var(--crit)}}
+.scanning .chip.due{animation:none}   /* เปิดแผ่นสแกนอยู่: หยุดกระพริบด้านหลัง ไม่ให้หน้าจอวูบตอนใช้กล้อง */
 .hist{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;font-size:.7rem;border-top:1px dashed var(--line);margin-top:2px;padding-top:3px}
 .hist .sys{color:var(--muted)}
 .hint{background:var(--warn-soft);color:var(--warn);border-radius:7px;padding:4px 8px;font-size:.75rem;display:flex;justify-content:space-between;align-items:center;gap:6px}
@@ -347,6 +348,7 @@ function padInput(k) {
 
 /* ---------- แสดงผลหลัก ---------- */
 function render() {
+  document.body.classList.toggle('scanning', !!scan);
   if (pendingApi) return confirmApiUI();
   if (!API) return setupUI();
   if (!mode) return loginUI();
@@ -413,7 +415,7 @@ async function startCamera() {
       (txt) => {
         txt = String(txt).trim();
         if (txt === last) n++; else { last = txt; n = 1; }
-        if (n >= 2) { scan.hn = normHN(txt); h.stop().catch(() => {}); toast('อ่านได้ ' + normHN(txt) + ' ตรวจให้ตรงกับสติกเกอร์'); render(); }
+        if (n >= 2) { scan.hn = normHN(txt); Promise.resolve(h.stop()).catch(() => {}).then(() => { toast('อ่านได้ ' + normHN(txt) + ' ตรวจให้ตรงกับสติกเกอร์'); render(); }); }
       }, () => {});
   } catch (e) { toast('เปิดกล้องสดไม่ได้ (' + String((e && e.message) || e).slice(0, 60) + ') ลองกด “ถ่ายรูป” แทน'); }
 }
