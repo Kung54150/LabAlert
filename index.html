@@ -48,7 +48,7 @@ button:disabled{opacity:.45;cursor:default}
 /* รายการมือถือ: 2 บรรทัดต่อคน */
 .list{display:flex;flex-direction:column;gap:3px}
 .r{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:6px;padding:3px 7px}
-.r.due{border-left-color:var(--crit)}.r.wait{border-left-color:#E2A412}.r.done{border-left-color:var(--ok)}
+.r.due{border-left-color:#9E2A22}.r.due.hot{border-left-color:#FF1A1A}.r.wait{border-left-color:#E2A412}.r.done{border-left-color:var(--ok)}
 .r.hl{outline:2px solid var(--accent)}
 .l1{display:flex;align-items:center;gap:6px}
 .q{font-size:.66rem;color:var(--muted);min-width:12px;text-align:right}
@@ -58,8 +58,9 @@ button:disabled{opacity:.45;cursor:default}
 .l2{font-size:.68rem;color:var(--muted);cursor:pointer;padding-top:1px}
 .l2 .red{color:var(--crit)}
 .chip{font-size:.66rem;font-weight:600;padding:0 6px;border-radius:99px;white-space:nowrap}
-.chip.due{background:var(--crit);color:#fff;animation:blink 1s steps(2,start) infinite}
-.chip.ack{background:var(--crit);color:#fff}
+/* ครบเวลายังไม่ตามผล: แดงสดกระพริบ / ตามผลแล้วรอรอบถัดไป: แดงเข้มนิ่ง */
+.chip.due{background:#FF1A1A;color:#fff;box-shadow:0 0 0 2px rgba(255,26,26,.35);animation:blink 1s steps(2,start) infinite}
+.chip.ack{background:#9E2A22;color:#fff}
 .chip.wait{background:var(--warn-soft);color:var(--warn)}.chip.done{background:var(--ok-soft);color:var(--ok)}.chip.stale{background:var(--sunk);color:var(--muted)}
 @keyframes blink{50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.chip.due{animation:none;outline:2px solid var(--crit)}}
@@ -73,7 +74,7 @@ button:disabled{opacity:.45;cursor:default}
 .tbl{width:100%;border-collapse:collapse;font-size:.8rem}
 .tbl th{text-align:left;font-size:.68rem;letter-spacing:.03em;color:var(--muted);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 .tbl td{padding:4px 8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
-.tbl tr.due td:first-child{box-shadow:inset 4px 0 var(--crit)}.tbl tr.wait td:first-child{box-shadow:inset 4px 0 #E2A412}.tbl tr.done td:first-child{box-shadow:inset 4px 0 var(--ok)}
+.tbl tr.due td:first-child{box-shadow:inset 4px 0 #9E2A22}.tbl tr.due.hot td:first-child{box-shadow:inset 4px 0 #FF1A1A}.tbl tr.wait td:first-child{box-shadow:inset 4px 0 #E2A412}.tbl tr.done td:first-child{box-shadow:inset 4px 0 var(--ok)}
 .tbl tr.hl td{background:var(--warn-soft)}
 .tbl .hrow td{background:var(--bg);white-space:normal}
 .tbl .acts{display:flex;gap:4px}.tbl .acts button{padding:1px 8px;font-size:.74rem}
@@ -235,7 +236,7 @@ function rowM(p, admin) {   // มือถือ: 2 บรรทัดต่อ
   if (p.pr) parts.push('พิมพ์ ' + fmt(p.pr));
   const extra = admin && s === 'due' && !acked(p) && cs != null ? ' · <b class="red">รอตอบรับ ' + mins(nowMs() - cs) + 'น.</b>' : '';
   const btns = s === 'done' ? '' : '<span class="btns"><button class="' + (s === 'due' && !acked(p) ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></span>';
-  return '<div class="r ' + s + (isHlRow(p) ? ' hl' : '') + '"><div class="l1"><span class="q">' + p.queue + '</span><span class="hn mono">' + esc(normHN(p.hn)) + '</span>' + chip(p) + btns + '</div>' +
+  return '<div class="r ' + s + (s === 'due' && !acked(p) ? ' hot' : '') + (isHlRow(p) ? ' hl' : '') + '"><div class="l1"><span class="q">' + p.queue + '</span><span class="hn mono">' + esc(normHN(p.hn)) + '</span>' + chip(p) + btns + '</div>' +
     '<div class="l2" data-hist="' + esc(p.id) + '">' + parts.join(' · ') + extra + ' ' + (open ? '▴' : '▾') + '</div>' + (open ? histHTML(p, admin) : '') + '</div>';
 }
 function tableW(list, admin) {   // PC: 1 คนต่อ 1 บรรทัด
@@ -243,7 +244,7 @@ function tableW(list, admin) {   // PC: 1 คนต่อ 1 บรรทัด
   const body = list.map((p) => {
     const s = cat(p), cs = cycleStart(p), lf = p.fols[p.fols.length - 1], open = openH[p.id];
     const acts = s === 'done' ? '' : '<div class="acts"><button class="' + (s === 'due' && !acked(p) ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></div>';
-    return '<tr class="' + s + (isHlRow(p) ? ' hl' : '') + '"><td class="mono">' + p.queue + '</td><td class="mono"><b>' + esc(normHN(p.hn)) + '</b></td>' +
+    return '<tr class="' + s + (s === 'due' && !acked(p) ? ' hot' : '') + (isHlRow(p) ? ' hl' : '') + '"><td class="mono">' + p.queue + '</td><td class="mono"><b>' + esc(normHN(p.hn)) + '</b></td>' +
       '<td class="mono">' + fmt(p.reg) + ' <span class="muted">' + esc(clean(p.regBy)) + '</span></td><td class="mono">' + fmt(dueAt(p)) + ' <span class="muted">(รอ ' + dur(p.wait) + ')</span></td><td>' + chip(p) + '</td>' +
       (admin ? '<td class="mono">' + (s === 'due' && !acked(p) && cs != null ? '<b style="color:var(--crit)">' + mins(nowMs() - cs) + ' นาที</b>' : '–') + '</td>' : '') +
       '<td class="mono">' + (lf ? p.fols.length + '× ล่าสุด ' + fmt(lf.at) + ' <span class="muted">' + esc(clean(lf.by)) + '</span>' : '–') + '</td>' +
@@ -327,6 +328,7 @@ async function doSavePin() {
 async function afterLogin() {
   tab = null; doneDay = null;
   await load(true);
+  if (hl) { const p = snap.patients.filter((x) => normHN(x.hn) === normHN(hl) && !x.pr)[0]; if (p) tab = cat(p); }
   schedule();
   if (CFG.mode === 'scan') scan = { hn: CFG.hn || '', wait: 45, custom: 30, pad: false };
 }
