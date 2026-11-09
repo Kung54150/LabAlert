@@ -20,59 +20,92 @@
 @media (prefers-color-scheme:dark){:root{--bg:#0F1716;--surface:#172220;--sunk:#1E2B29;--line:#2C3C39;--ink:#E4EEEC;--muted:#93A6A2;
  --accent:#4FB7A9;--accent-ink:#06201C;--ok:#6BCB8F;--ok-soft:#173326;--warn:#F0B54A;--warn-soft:#3A2C10;--crit:#F2877F;--crit-soft:#3E1A17}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-body);padding:16px max(16px,env(safe-area-inset-right)) 96px max(16px,env(safe-area-inset-left))}
-.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.35 var(--f-body);padding:6px max(8px,env(safe-area-inset-right)) 84px max(8px,env(safe-area-inset-left))}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
 .mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
-button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 12px}
-button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.muted{color:var(--muted)}
+button{font:inherit;cursor:pointer;border-radius:7px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:4px 10px}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
-button:disabled{opacity:.5;cursor:default}
-header{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center}
-h1{font-size:1.3rem;margin:0}
-.who{font-size:.8rem;color:var(--muted)}
-.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:10px;width:fit-content;max-width:100%}
-.tabs button{border:0;background:transparent;white-space:nowrap}
-.tabs button[aria-selected="true"]{background:var(--surface);font-weight:600}
-.stabs{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;max-width:620px}
-.stab{border:0;border-bottom:4px solid transparent;border-radius:0;background:transparent;padding:9px 4px;font-size:.85rem;display:flex;flex-direction:column;align-items:center;line-height:1.25}
-.stab b{font-size:1.2rem}.stab.due{color:var(--crit)}.stab.wait{color:var(--warn)}.stab.done{color:var(--ok)}
-.stab[aria-selected="true"]{font-weight:600}
-.stab[aria-selected="true"].due{border-bottom-color:var(--crit);background:var(--crit-soft)}
-.stab[aria-selected="true"].wait{border-bottom-color:#E2A412;background:var(--warn-soft)}
-.stab[aria-selected="true"].done{border-bottom-color:var(--ok);background:var(--ok-soft)}
-.grid{display:flex;flex-direction:column;gap:10px;max-width:720px}
-.card{background:var(--surface);border:1px solid var(--line);border-left:8px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
-.card.due{border-left-color:var(--crit)}.card.wait{border-left-color:#E2A412}.card.done{border-left-color:var(--ok)}
-.card.hl{outline:3px solid var(--accent)}
-.row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
-.q{font-size:.75rem;color:var(--muted)}.hn{font-size:1.2rem;font-weight:600}
-.pill{font-size:.78rem;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
-.pill.due{background:var(--crit);color:#fff;animation:blink 1s steps(2,start) infinite}
-.pill.wait{background:var(--warn-soft);color:var(--warn)}.pill.done{background:var(--ok-soft);color:var(--ok)}
+button.ghost{background:transparent}
+button:disabled{opacity:.45;cursor:default}
+
+/* หัวแอป + แท็บ (บาง) */
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:28px}
+.top b{font-size:.95rem}.top .who{font-size:.72rem;color:var(--muted);margin-left:4px}
+.top .right{display:flex;align-items:center;gap:6px}
+.date{font-size:.8rem;font-weight:600}
+.top button{padding:1px 8px;font-size:.72rem}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{flex:1;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;padding:4px 2px;font-size:.78rem;white-space:nowrap}
+.tab b{font-size:.9rem;margin-left:3px}
+.tab.due{color:var(--crit)}.tab.wait{color:var(--warn)}.tab.done{color:var(--ok)}
+.tab[aria-selected="true"]{font-weight:700}
+.tab[aria-selected="true"].due{border-bottom-color:var(--crit)}.tab[aria-selected="true"].wait{border-bottom-color:#E2A412}.tab[aria-selected="true"].done{border-bottom-color:var(--ok)}
+.daybar{display:flex;align-items:center;gap:8px;font-size:.8rem}
+.daybar button{padding:1px 10px}
+
+/* รายการมือถือ: 2 บรรทัดต่อคน */
+.list{display:flex;flex-direction:column;gap:3px}
+.r{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:6px;padding:3px 7px}
+.r.due{border-left-color:var(--crit)}.r.wait{border-left-color:#E2A412}.r.done{border-left-color:var(--ok)}
+.r.hl{outline:2px solid var(--accent)}
+.l1{display:flex;align-items:center;gap:6px}
+.q{font-size:.66rem;color:var(--muted);min-width:12px;text-align:right}
+.hn{font-weight:600;font-size:.95rem}
+.btns{margin-left:auto;display:flex;gap:4px}
+.btns button{padding:1px 8px;font-size:.72rem;border-radius:6px}
+.l2{font-size:.68rem;color:var(--muted);cursor:pointer;padding-top:1px}
+.l2 .red{color:var(--crit)}
+.chip{font-size:.66rem;font-weight:600;padding:0 6px;border-radius:99px;white-space:nowrap}
+.chip.due{background:var(--crit);color:#fff;animation:blink 1s steps(2,start) infinite}
+.chip.wait{background:var(--warn-soft);color:var(--warn)}.chip.done{background:var(--ok-soft);color:var(--ok)}.chip.stale{background:var(--sunk);color:var(--muted)}
 @keyframes blink{50%{opacity:.3}}
-@media (prefers-reduced-motion:reduce){.pill.due{animation:none;outline:2px solid var(--crit)}}
-.latest{font-size:.8rem;color:var(--muted)}
-.resp{font-size:.82rem;font-weight:600;color:var(--crit);background:var(--crit-soft);border-radius:6px;padding:3px 8px}
-.acts{display:flex;gap:6px}.acts button{flex:1}
-.histbtn{align-self:flex-start;border:0;background:transparent;color:var(--accent);padding:2px 0;font-size:.8rem}
-.hist{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.78rem;border-top:1px dashed var(--line);padding-top:6px}
+@media (prefers-reduced-motion:reduce){.chip.due{animation:none;outline:2px solid var(--crit)}}
+.hist{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;font-size:.7rem;border-top:1px dashed var(--line);margin-top:2px;padding-top:3px}
 .hist .sys{color:var(--muted)}
-.hint{background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:6px 10px;font-size:.82rem}
-.empty{color:var(--muted);text-align:center;padding:32px 0}
-.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));border-radius:99px;padding:13px 24px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.hint{background:var(--warn-soft);color:var(--warn);border-radius:7px;padding:4px 8px;font-size:.75rem;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.empty{color:var(--muted);text-align:center;padding:24px 0}
+
+/* ตารางหน้าจอกว้าง: 1 คนต่อ 1 บรรทัด */
+.tblwrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.tbl{width:100%;border-collapse:collapse;font-size:.8rem}
+.tbl th{text-align:left;font-size:.68rem;letter-spacing:.03em;color:var(--muted);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:4px 8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+.tbl tr.due td:first-child{box-shadow:inset 4px 0 var(--crit)}.tbl tr.wait td:first-child{box-shadow:inset 4px 0 #E2A412}.tbl tr.done td:first-child{box-shadow:inset 4px 0 var(--ok)}
+.tbl tr.hl td{background:var(--warn-soft)}
+.tbl .hrow td{background:var(--bg);white-space:normal}
+.tbl .acts{display:flex;gap:4px}.tbl .acts button{padding:1px 8px;font-size:.74rem}
+.tbl .tg{border:0;background:transparent;color:var(--accent);padding:0 4px}
+
+.fab{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom,0px));border-radius:99px;padding:9px 16px;box-shadow:0 3px 12px rgba(0,0,0,.3);font-size:.85rem}
+
+/* แผ่นสแกน */
 .sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:10}
-.sheet{background:var(--surface);width:min(460px,100%);border-radius:16px 16px 0 0;padding:16px max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:10px;max-height:92%;overflow:auto}
-@media(min-width:600px){.sheet-bg{align-items:center}.sheet{border-radius:16px}}
-.sheet input{font:inherit;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
-.btnlink{display:block;text-align:center;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:10px;font-weight:600;text-decoration:none}
-.chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{flex:1 1 auto;border-radius:99px;font-size:.85rem;padding:6px 8px;white-space:nowrap}
+.sheet{background:var(--surface);width:min(440px,100%);border-radius:14px 14px 0 0;padding:10px max(12px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:7px;max-height:94%;overflow:auto}
+@media(min-width:600px){.sheet-bg{align-items:center}.sheet{border-radius:14px}}
+.hnbox{font-size:1.5rem;font-weight:600;text-align:center;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-height:2.4rem}
+.hnbox.empty-hn{color:var(--muted);font-size:.9rem;font-weight:400;padding-top:11px}
+.row{display:flex;gap:6px;align-items:center;justify-content:space-between}
+.row.g button{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:5px}.chips button{flex:1 1 auto;border-radius:99px;font-size:.78rem;padding:3px 6px;white-space:nowrap}
 .chips button.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.step{display:flex;align-items:center;justify-content:center;gap:12px}.step b{font-size:1.1rem;min-width:70px;text-align:center}
+.step button{width:44px;font-size:1rem}
 #reader{width:100%;min-height:0}
-.login{max-width:340px;margin:8vh auto 0;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
-.dots{display:flex;gap:12px}.dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--accent)}.dots i.on{background:var(--accent)}
-.pad{display:grid;grid-template-columns:repeat(3,68px);gap:10px}.pad button{height:58px;font-size:1.3rem;border-radius:50%}
-.err{color:var(--crit);font-size:.85rem;min-height:1.3em}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:.88rem;z-index:20}
+#reader:empty{display:none}
+
+/* เข้าสู่ระบบ: ปุ่มกดทั้งหมด ไม่เปิดแป้นพิมพ์ */
+.login{max-width:330px;margin:3vh auto 0;display:flex;flex-direction:column;align-items:stretch;gap:10px;text-align:center}
+.login h1{font-size:1.2rem;margin:0}
+.field{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:9px;border:2px solid var(--line);background:var(--surface);text-align:left}
+.field .lbl{font-size:.78rem;color:var(--muted)}.field .val{font-size:1.25rem;letter-spacing:.12em;min-height:1.6rem}
+.field.on{border-color:var(--accent)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pad button{height:50px;font-size:1.3rem;border-radius:12px}
+.pad button.sm{font-size:.85rem}
+.big{padding:12px;font-size:1rem;border-radius:10px}
+.err{color:var(--crit);font-size:.8rem;min-height:1.1rem}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(64px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:7px 14px;border-radius:8px;font-size:.82rem;z-index:20;max-width:92%}
 </style>
 </head>
 <body>
@@ -82,6 +115,7 @@ h1{font-size:1.3rem;margin:0}
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
+/* ---------- ตั้งค่า ---------- */
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
 const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
@@ -92,9 +126,15 @@ if (!API_RE.test(API)) API = '';
 const qApi = qs.get('api') || '';
 let pendingApi = !HAS_EMBEDDED && API_RE.test(qApi) && qApi !== API ? qApi : '';   // ลิงก์จาก LINE: ให้ผู้ใช้ยืนยันก่อนเชื่อมต่อ
 const CFG = { liffId: '', mode: qs.get('mode') || '', hn: qs.get('hn') || '' };
+
+/* ---------- ฟังก์ชันช่วย ---------- */
 const $app = document.getElementById('app');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (ms) => ms ? new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Bangkok' }) : '–';
+const bkkDay = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(ms)).replace(/-/g, '');
+const utcNoon = (d, add) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8) + (add || 0), 12));
+const dayLabel = (d, weekday) => utcNoon(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'UTC', ...(weekday ? { weekday: 'short' } : {}) });
+const shiftDay = (d, n) => { const t = utcNoon(d, n); return t.getUTCFullYear() + String(t.getUTCMonth() + 1).padStart(2, '0') + String(t.getUTCDate()).padStart(2, '0'); };
 // HN แสดงเป็นรูปแบบ 69-4948: ถ้ามีแต่ตัวเลข (5-10 หลัก) ใส่ขีดหลังเลข 2 หลักแรก
 const normHN = (v) => {
   const t = String(v == null ? '' : v).trim();
@@ -103,13 +143,21 @@ const normHN = (v) => {
   return /^\d{5,10}$/.test(d) ? d.slice(0, 2) + '-' + d.slice(2) : t;
 };
 const dur = (m) => m < 60 ? m + ' นาที' : ((m / 60) % 1 ? (m / 60).toFixed(1) : m / 60) + ' ชม.';
+const clean = (s) => String(s || '').replace(/(\s*\((แอป|LINE)\))+\s*$/, (m) => (/แอป/.test(m) ? ' (แอป)' : ''));
+const mins = (ms) => Math.max(0, Math.round(ms / 60000));
 
-let mode = null;            // 'line' | 'app' | null
-let appToken = null, pin = '', pinErr = '';
-let snap = { now: Date.now(), patients: [] }, offset = 0;
-let tab = 'wait', hl = CFG.hn || '', hlMode = CFG.mode === 'follow' ? CFG.hn : '';
-let scan = null;            // { hn, wait, custom, open }
+/* ---------- สถานะ ---------- */
+let mode = null;                 // 'app' | 'line' | null
+let me = null;                   // { code, role }
+let appToken = null, mustChange = false;
+let lg = { code: store.get('lastCode') || '', pin: '', field: store.get('lastCode') ? 'pin' : 'code', err: '', busy: false };
+let cp = { a: '', b: '', field: 'a', err: '', busy: false };
+let snap = { now: Date.now(), today: bkkDay(Date.now()), patients: [] }, offset = 0;
+let tab = null, doneDay = null;
+let hl = CFG.hn || '', hlMode = CFG.mode === 'follow' ? CFG.hn : '';
+let scan = null;                 // { hn, wait, custom, pad }
 let busy = false, timer = null;
+const openH = {};
 
 const call = async (fn, ...args) => {
   let r;
@@ -121,16 +169,20 @@ const call = async (fn, ...args) => {
   return j.data;
 };
 const nowMs = () => Date.now() + offset;
-function auth() {
-  if (mode === 'line') return { type: 'line', accessToken: liff.getAccessToken() };
-  return { type: 'app', token: appToken, nick: store.get('nick') || '' };
+const auth = () => mode === 'line' ? { type: 'line', accessToken: liff.getAccessToken() } : { type: 'app', token: appToken };
+const isAdmin = () => !!(me && me.role === 'Admin');
+const isWide = () => window.innerWidth >= 900;
+function toast(s) { const t = document.getElementById('toast'); t.textContent = s; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2600); }
+function setSnap(s) { snap = s; offset = s.now - Date.now(); if (s.me) me = s.me; }
+function localLogout(msg) {
+  mode = null; me = null; appToken = null; mustChange = false; store.set('tok', ''); clearInterval(timer);
+  lg = { code: store.get('lastCode') || '', pin: '', field: store.get('lastCode') ? 'pin' : 'code', err: msg || '', busy: false };
 }
-function toast(s) { const t = document.getElementById('toast'); t.textContent = s; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2400); }
-function setSnap(s) { snap = s; offset = s.now - Date.now(); }
 
+/* ---------- ตรรกะสถานะ ---------- */
 const REP = 10 * 60000;
 const dueAt = (p) => p.reg + p.wait * 60000;
-/** จำลองรอบแจ้งเตือน: ครบเวลาแล้วแจ้งทุก 10 นาที ถ้ามีคนตามผลก่อน ข้ามรอบนั้นแล้วนับ 10 นาทีใหม่ (ใช้แสดงเวลารอตอบรับในหน้า Admin) */
+/** จำลองรอบแจ้งเตือน: ครบเวลาแล้วแจ้งทุก 10 นาที ถ้ามีคนตามผลก่อน ข้ามรอบนั้นแล้วนับ 10 นาทีใหม่ (ใช้แสดงเวลารอตอบรับของแอดมิน) */
 function sim(p) {
   const al = [], F = p.fols; let nx = dueAt(p), i = 0;
   for (let g = 0; g < 500; g++) {
@@ -141,24 +193,14 @@ function sim(p) {
   }
   return al;
 }
-function stateOf(p) {
-  if (p.pr) return 'done';
+function cat(p) {
+  if (p.pr || p.stale) return 'done';
   if (!p.fols.length) return nowMs() >= dueAt(p) ? 'due' : 'wait';
   const lf = p.fols[p.fols.length - 1];
   return p.lastAlert && p.lastAlert > lf.at ? 'due' : 'wait';
 }
 function cycleStart(p) { const lf = p.fols[p.fols.length - 1]; const a = sim(p).filter((t) => !lf || t > lf.at); return a.length ? a[0] : null; }
 function respOf(p, k) { const f = p.fols[k], prev = k ? p.fols[k - 1].at : -1; const a = sim(p).filter((t) => t > prev && t <= f.at); return a.length ? f.at - a[0] : null; }
-const clean = (s) => String(s || '').replace(/(\s*\((แอป|LINE)\))+\s*$/, (m) => (/แอป/.test(m) ? ' (แอป)' : ''));
-const mins = (ms) => Math.max(0, Math.round(ms / 60000));
-const isAdmin = () => window.innerWidth >= 900;
-function pill(p) {
-  const s = stateOf(p);
-  if (s === 'done') return '<span class="pill done">พิมพ์ผลแล้ว</span>';
-  if (s === 'due') return '<span class="pill due">ครบเวลา · ยังไม่ตามผล</span>';
-  const next = p.fols.length ? p.next : dueAt(p);
-  return '<span class="pill wait">รออีก ' + Math.max(0, Math.ceil((next - nowMs()) / 60000)) + ' นาที</span>';
-}
 function events(p, admin) {
   const ev = [{ t: p.reg, o: 0, txt: 'ลงทะเบียน (รอ ' + dur(p.wait) + ') · ' + clean(p.regBy) }];
   p.fols.forEach((f, k) => {
@@ -170,135 +212,191 @@ function events(p, admin) {
   if (admin) sim(p).forEach((t, k) => ev.push({ t: t, o: 1, sys: 1, txt: 'ระบบแจ้งเตือน LINE (' + (k + 1) + ')' }));
   return ev.sort((a, b) => a.t - b.t || a.o - b.o);
 }
-const openH = {};
-function card(p, admin) {
-  const s = stateOf(p), ev = events(p, admin), main = ev.filter((e) => !e.sys), last = main[main.length - 1];
-  const open = openH[p.id], isHl = hl && normHN(p.hn) === normHN(hl) && !p.pr;
-  const cs = cycleStart(p);
-  const resp = admin && s === 'due' && cs != null ? '<div class="resp">รอตอบรับมาแล้ว ' + mins(nowMs() - cs) + ' นาที · แจ้งแล้ว ' + sim(p).filter((t) => t >= cs).length + ' ครั้ง</div>' : '';
-  const acts = p.pr ? '' : '<div class="acts"><button class="' + (s === 'due' ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล' + (p.fols.length ? ' (' + p.fols.length + ')' : '') + '</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผลแล้ว</button></div>';
-  return '<div class="card ' + s + (isHl ? ' hl' : '') + '" data-card="' + esc(p.id) + '">' +
-    '<div class="row"><span class="q">คิว ' + p.queue + '</span>' + pill(p) + '</div>' +
-    '<div class="row"><span class="hn mono">HN ' + esc(normHN(p.hn)) + '</span><span class="q">รอ ' + dur(p.wait) + '</span></div>' + resp +
-    (isHl && hlMode ? '<div class="hint">กดปุ่ม “ตามผล” เมื่อคุณตามผลรายนี้แล้ว</div>' : '') +
-    '<div class="latest">ล่าสุด <span class="mono">' + fmt(last.t) + '</span> · ' + esc(last.txt.split(' · ')[0].replace(/\(.*$/, '')) + '</div>' + acts +
-    '<button class="histbtn" data-hist="' + esc(p.id) + '">' + (open ? 'ซ่อนประวัติ ▲' : 'ประวัติเวลา (' + ev.length + ') ▼') + '</button>' +
-    (open ? '<div class="hist">' + ev.slice().reverse().map((e) => '<span class="mono ' + (e.sys ? 'sys' : '') + '">' + fmt(e.t) + '</span><span class="' + (e.sys ? 'sys' : '') + '">' + esc(e.txt) + '</span>').join('') + '</div>' : '') + '</div>';
+function chip(p) {
+  const s = cat(p);
+  if (s === 'done') return p.pr ? '<span class="chip done">พิมพ์แล้ว</span>' : '<span class="chip stale">ไม่ได้พิมพ์ผล</span>';
+  if (s === 'due') return '<span class="chip due">ครบเวลา</span>';
+  return '<span class="chip wait">รออีก ' + Math.max(0, Math.ceil(((p.fols.length ? p.next : dueAt(p)) - nowMs()) / 60000)) + 'น.</span>';
+}
+function histHTML(p, admin) {
+  return '<div class="hist">' + events(p, admin).slice().reverse().map((e) => '<span class="mono ' + (e.sys ? 'sys' : '') + '">' + fmt(e.t) + '</span><span class="' + (e.sys ? 'sys' : '') + '">' + esc(e.txt) + '</span>').join('') + '</div>';
+}
+const isHlRow = (p) => hl && normHN(p.hn) === normHN(hl) && !p.pr;
+
+/* ---------- แถวรายการ ---------- */
+function rowM(p, admin) {   // มือถือ: 2 บรรทัดต่อคน
+  const s = cat(p), cs = cycleStart(p), open = openH[p.id], lf = p.fols[p.fols.length - 1];
+  const parts = ['ลง ' + fmt(p.reg), 'ครบ ' + fmt(dueAt(p))];
+  if (p.fols.length) parts.push('ตาม ' + p.fols.length + '× ' + fmt(lf.at));
+  if (p.pr) parts.push('พิมพ์ ' + fmt(p.pr));
+  const extra = admin && s === 'due' && cs != null ? ' · <b class="red">รอตอบรับ ' + mins(nowMs() - cs) + 'น.</b>' : '';
+  const btns = s === 'done' ? '' : '<span class="btns"><button class="' + (s === 'due' ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></span>';
+  return '<div class="r ' + s + (isHlRow(p) ? ' hl' : '') + '"><div class="l1"><span class="q">' + p.queue + '</span><span class="hn mono">' + esc(normHN(p.hn)) + '</span>' + chip(p) + btns + '</div>' +
+    '<div class="l2" data-hist="' + esc(p.id) + '">' + parts.join(' · ') + extra + ' ' + (open ? '▴' : '▾') + '</div>' + (open ? histHTML(p, admin) : '') + '</div>';
+}
+function tableW(list, admin) {   // PC: 1 คนต่อ 1 บรรทัด
+  const cols = 9 + (admin ? 1 : 0);
+  const body = list.map((p) => {
+    const s = cat(p), cs = cycleStart(p), lf = p.fols[p.fols.length - 1], open = openH[p.id];
+    const acts = s === 'done' ? '' : '<div class="acts"><button class="' + (s === 'due' ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></div>';
+    return '<tr class="' + s + (isHlRow(p) ? ' hl' : '') + '"><td class="mono">' + p.queue + '</td><td class="mono"><b>' + esc(normHN(p.hn)) + '</b></td>' +
+      '<td class="mono">' + fmt(p.reg) + ' <span class="muted">' + esc(clean(p.regBy)) + '</span></td><td class="mono">' + fmt(dueAt(p)) + ' <span class="muted">(รอ ' + dur(p.wait) + ')</span></td><td>' + chip(p) + '</td>' +
+      (admin ? '<td class="mono">' + (s === 'due' && cs != null ? '<b style="color:var(--crit)">' + mins(nowMs() - cs) + ' นาที</b>' : '–') + '</td>' : '') +
+      '<td class="mono">' + (lf ? p.fols.length + '× ล่าสุด ' + fmt(lf.at) + ' <span class="muted">' + esc(clean(lf.by)) + '</span>' : '–') + '</td>' +
+      '<td class="mono">' + (p.pr ? fmt(p.pr) + ' <span class="muted">' + esc(clean(p.prBy)) + '</span>' : '–') + '</td><td>' + acts + '</td>' +
+      '<td><button class="tg" data-hist="' + esc(p.id) + '">' + (open ? 'ซ่อน ▴' : 'ประวัติ ▾') + '</button></td></tr>' +
+      (open ? '<tr class="hrow"><td colspan="' + cols + '">' + histHTML(p, admin) + '</td></tr>' : '');
+  }).join('');
+  return '<div class="tblwrap"><table class="tbl"><thead><tr><th>คิว</th><th>HN</th><th>ลงทะเบียน</th><th>ครบกำหนด</th><th>สถานะ</th>' + (admin ? '<th>รอตอบรับ</th>' : '') + '<th>ตามผล</th><th>พิมพ์ผล</th><th></th><th></th></tr></thead><tbody>' + body + '</tbody></table></div>';
 }
 
-/* ---------- เข้าสู่ระบบ ---------- */
-async function init() {
-  render();
-  if (!API || pendingApi) return;
-  try { CFG.liffId = (await call('apiConfig')).liffId || ''; } catch (e) { /* ใช้รหัสแผนกแทน */ }
-  if (CFG.liffId && window.liff) {
-    try {
-      await liff.init({ liffId: CFG.liffId });
-      if (liff.isLoggedIn()) { mode = 'line'; }
-    } catch (e) { /* ใช้รหัสแผนกแทน */ }
-  }
-  if (!mode && store.get('tok')) { // กลับมาจากหน้าสแกน: ใช้ session เดิมโดยไม่ต้องใส่รหัสซ้ำ
-    appToken = store.get('tok'); mode = 'app';
-    try { setSnap(await call('apiList', auth())); } catch (e) { mode = null; appToken = null; store.set('tok', ''); }
-  } else if (mode) await load(true);
-  if (hl) { const p = snap.patients.filter((x) => normHN(x.hn) === normHN(hl) && !x.pr)[0]; if (p) tab = stateOf(p); }
-  render();
-}
 /* ---------- ติดตั้งเป็นแอป (PWA) ---------- */
 let deferredInstall = null;
 const isStandalone = () => (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function installBanner() {
   if (isStandalone() || store.get('hideInstall') === '1') return '';
-  const close = ' <button data-act="hideinstall" style="padding:2px 10px">ปิด</button>';
-  if (deferredInstall) return '<div class="hint row" style="margin-bottom:8px"><span>ติดตั้ง LabAlert ไว้ที่หน้าจอหลัก</span><span><button class="primary" data-act="install" style="padding:4px 12px">ติดตั้ง</button>' + close + '</span></div>';
-  if (isIOS()) return '<div class="hint row" style="margin-bottom:8px"><span>ติดตั้งไว้ที่หน้าจอหลัก: แตะปุ่มแชร์ แล้วเลือก “เพิ่มไปยังหน้าจอโฮม”</span>' + close + '</div>';
+  const close = '<button data-act="hideinstall" style="padding:0 8px">ปิด</button>';
+  if (deferredInstall) return '<div class="hint"><span>ติดตั้ง LabAlert ไว้ที่หน้าจอหลัก</span><span><button class="primary" data-act="install" style="padding:0 10px">ติดตั้ง</button> ' + close + '</span></div>';
+  if (isIOS()) return '<div class="hint"><span>ติดตั้งไว้หน้าจอหลัก: แตะแชร์ แล้วเลือก “เพิ่มไปยังหน้าจอโฮม”</span>' + close + '</div>';
   return '';
 }
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; if (!scan) render(); });
 window.addEventListener('appinstalled', () => { deferredInstall = null; if (!scan) render(); });
 if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 
+/* ---------- หน้าตั้งค่า / ยืนยันลิงก์ ---------- */
 function setupUI() {
-  $app.innerHTML = '<div class="login"><h1>LabAlert อายุรกรรม</h1><div class="who">ใส่ลิงก์ Web app ของ Apps Script (ขึ้นต้น https://script.google.com/macros/s/ ลงท้าย /exec) ครั้งเดียวต่อเครื่อง</div>' +
+  $app.innerHTML = '<div class="login"><h1>LabAlert อายุรกรรม</h1><div class="muted">ใส่ลิงก์ Web app ของ Apps Script (ขึ้นต้น https://script.google.com/macros/s/ ลงท้าย /exec) ครั้งเดียวต่อเครื่อง</div>' +
     '<input id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec" inputmode="url" autocomplete="off" style="font:inherit;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%">' +
-    '<button class="primary" data-api="save" style="width:100%;padding:11px">บันทึก</button></div>';
+    '<button class="primary big" data-api="save">บันทึก</button></div>';
 }
 function confirmApiUI() {
   const tail = pendingApi.replace(/\/(exec|dev)$/, '').slice(-8);
-  $app.innerHTML = '<div class="login"><h1>เชื่อมต่อระบบ</h1><div class="who">ลิงก์นี้ขอเชื่อมต่อกับระบบที่ลงท้ายด้วย <b class="mono">…' + esc(tail) + '</b> ยืนยันเมื่อเป็นระบบของแผนกเท่านั้น</div>' +
-    '<button class="primary" data-api="confirm" style="width:100%;padding:11px">ใช่ เชื่อมต่อ</button><button data-api="cancel" style="width:100%">ยกเลิก</button></div>';
-}
-function loginUI() {
-  const lineBtn = (CFG.liffId && window.liff) ? '<button class="primary" id="lineLogin">เข้าสู่ระบบด้วย LINE</button><div class="who">หรือใช้รหัสแผนก</div>' : '';
-  $app.innerHTML = '<div class="login"><h1>LabAlert อายุรกรรม</h1>' + lineBtn +
-    '<b>ใส่รหัสแผนก</b><div class="dots">' + Array.from({ length: Math.max(4, pin.length) }, (_, i) => '<i class="' + (i < pin.length ? 'on' : '') + '"></i>').join('') + '</div>' +
-    '<div class="err">' + esc(pinErr) + '</div>' +
-    '<div class="pad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, '⌫', 0, 'OK'].map((k) => '<button data-pin="' + k + '"' + (k === 'OK' ? ' class="primary" aria-label="ยืนยัน"' : '') + '>' + (k === 'OK' ? '✓' : k) + '</button>').join('') + '</div>' +
-    '<label class="who" for="nick">ชื่อเล่น (ไม่บังคับ ใช้บันทึกว่าใครกด)</label><input id="nick" maxlength="30" value="' + esc(store.get('nick') || '') + '" style="font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:220px"></div>';
+  $app.innerHTML = '<div class="login"><h1>เชื่อมต่อระบบ</h1><div class="muted">ลิงก์นี้ขอเชื่อมต่อกับระบบที่ลงท้ายด้วย <b class="mono">…' + esc(tail) + '</b> ยืนยันเมื่อเป็นระบบของแผนกเท่านั้น</div>' +
+    '<button class="primary big" data-api="confirm">ใช่ เชื่อมต่อ</button><button class="big" data-api="cancel">ยกเลิก</button></div>';
 }
 
-/* ---------- แสดงผล ---------- */
+/* ---------- เข้าสู่ระบบ: รหัสพนักงาน + รหัสผ่าน ด้วยปุ่มกดทั้งหมด ---------- */
+const padHTML = (dash) => '<div class="pad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => '<button data-k="' + k + '">' + k + '</button>').join('') +
+  (dash ? '<button data-k="-">-</button>' : '<button class="sm" data-k="cl">ล้าง</button>') + '<button data-k="0">0</button><button data-k="bk" aria-label="ลบ">⌫</button></div>';
+function loginUI() {
+  const lineBtn = (CFG.liffId && window.liff) ? '<button class="big" id="lineLogin">เข้าสู่ระบบด้วย LINE</button>' : '';
+  $app.innerHTML = installBanner() + '<div class="login"><h1>LabAlert อายุรกรรม</h1>' +
+    '<button class="field ' + (lg.field === 'code' ? 'on' : '') + '" data-field="code"><span class="lbl">รหัสพนักงาน</span><span class="val mono">' + esc(lg.code) + '</span></button>' +
+    '<button class="field ' + (lg.field === 'pin' ? 'on' : '') + '" data-field="pin"><span class="lbl">รหัสผ่าน</span><span class="val">' + '●'.repeat(lg.pin.length) + '</span></button>' +
+    '<div class="err">' + esc(lg.err) + '</div>' + padHTML(false) +
+    '<button class="primary big" data-act="login"' + (lg.busy ? ' disabled' : '') + '>' + (lg.busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ') + '</button>' + lineBtn +
+    (HAS_EMBEDDED ? '' : '<button class="ghost" data-api="reset" style="font-size:.72rem">เปลี่ยนการเชื่อมต่อระบบ</button>') + '</div>';
+}
+function changeUI() {
+  $app.innerHTML = '<div class="login"><h1>ตั้งรหัสผ่านใหม่</h1><div class="muted">รหัสพนักงาน ' + esc(me ? me.code : '') + ' · ตัวเลข 6–8 หลัก จำไว้ใช้เข้าครั้งต่อไป</div>' +
+    '<button class="field ' + (cp.field === 'a' ? 'on' : '') + '" data-field="a"><span class="lbl">รหัสผ่านใหม่</span><span class="val">' + '●'.repeat(cp.a.length) + '</span></button>' +
+    '<button class="field ' + (cp.field === 'b' ? 'on' : '') + '" data-field="b"><span class="lbl">ยืนยันรหัสผ่านใหม่</span><span class="val">' + '●'.repeat(cp.b.length) + '</span></button>' +
+    '<div class="err">' + esc(cp.err) + '</div>' + padHTML(false) +
+    '<button class="primary big" data-act="savepin"' + (cp.busy ? ' disabled' : '') + '>บันทึกและเข้าใช้งาน</button></div>';
+}
+async function doLogin() {
+  if (lg.busy) return;
+  lg.err = '';
+  if (lg.code.length < 3) { lg.err = 'กดรหัสพนักงาน'; lg.field = 'code'; render(); return; }
+  if (lg.pin.length < 4) { lg.err = 'กดรหัสผ่าน'; lg.field = 'pin'; render(); return; }
+  lg.busy = true; render();
+  try {
+    const r = await call('apiLogin', lg.code, lg.pin);
+    appToken = r.token; me = r.me; mode = 'app'; mustChange = !!r.must;
+    store.set('tok', appToken); store.set('lastCode', lg.code); lg.pin = '';
+    if (mustChange) { cp = { a: '', b: '', field: 'a', err: '', busy: false }; lg.busy = false; render(); return; }
+    await afterLogin();
+  } catch (e) { lg.err = e.message; lg.pin = ''; lg.field = 'pin'; mode = null; }
+  lg.busy = false; render();
+}
+async function doSavePin() {
+  if (cp.busy) return;
+  if (!/^\d{6,8}$/.test(cp.a)) { cp.err = 'รหัสผ่านใหม่ต้องเป็นตัวเลข 6–8 หลัก'; cp.field = 'a'; render(); return; }
+  if (cp.a !== cp.b) { cp.err = 'รหัสผ่านทั้งสองช่องไม่ตรงกัน'; cp.b = ''; cp.field = 'b'; render(); return; }
+  cp.busy = true; cp.err = '';
+  try { await call('apiChangePin', auth(), cp.a); mustChange = false; cp.a = cp.b = ''; toast('ตั้งรหัสผ่านใหม่แล้ว'); await afterLogin(); }
+  catch (e) { cp.err = e.message; }
+  cp.busy = false; render();
+}
+async function afterLogin() {
+  tab = null; doneDay = null;
+  await load(true);
+  schedule();
+  if (CFG.mode === 'scan') scan = { hn: CFG.hn || '', wait: 45, custom: 30, pad: false };
+}
+function padInput(k) {
+  let o, key, max, dash = false;
+  if (scan && scan.pad) { o = scan; key = 'hn'; max = 12; dash = true; }
+  else if (mode === 'app' && mustChange) { o = cp; key = cp.field; max = 8; }
+  else { o = lg; key = lg.field; max = key === 'code' ? 10 : 8; }
+  if (k === 'bk') o[key] = o[key].slice(0, -1);
+  else if (k === 'cl') o[key] = '';
+  else if (k === '-') { if (dash && o[key].length < max) o[key] += '-'; }
+  else if (o[key].length < max) o[key] += k;
+  if (o === lg && key === 'code' && lg.code.length === 5 && k !== 'bk' && k !== 'cl') lg.field = 'pin';   // รหัสพนักงาน 5 หลัก เลื่อนไปช่องรหัสผ่านเอง
+  if (o === scan) { updateScanHn(); return; }
+  render();
+}
+
+/* ---------- แสดงผลหลัก ---------- */
 function render() {
   if (pendingApi) return confirmApiUI();
   if (!API) return setupUI();
-  if (!mode) {
-    loginUI();
-    const l = $app.querySelector('.login');
-    if (l) l.insertAdjacentHTML('afterbegin', installBanner());
-    if (l && !HAS_EMBEDDED) l.insertAdjacentHTML('beforeend', '<button class="ghost" data-api="reset" style="font-size:.78rem">เปลี่ยนการเชื่อมต่อระบบ</button>');
-    return;
-  }
-  const admin = isAdmin();
+  if (!mode) return loginUI();
+  if (mustChange) return changeUI();
+  const admin = isAdmin(), wide = isWide();
   const g = { due: [], wait: [], done: [] };
-  snap.patients.forEach((p) => g[stateOf(p)].push(p));
-  g.due.sort((a, b) => (cycleStart(a) || 0) - (cycleStart(b) || 0));           // รอนานสุดอยู่บน
-  g.wait.sort((a, b) => (a.fols.length ? a.next : dueAt(a)) - (b.fols.length ? b.next : dueAt(b))); // ผลควรออกก่อนอยู่บน
-  g.done.sort((a, b) => b.pr - a.pr);
+  snap.patients.forEach((p) => g[cat(p)].push(p));
+  g.due.sort((a, b) => (cycleStart(a) || 0) - (cycleStart(b) || 0));                                          // รอนานสุดอยู่บน
+  g.wait.sort((a, b) => (a.fols.length ? a.next : dueAt(a)) - (b.fols.length ? b.next : dueAt(b)));            // ผลควรออกก่อนอยู่บน
+  if (!doneDay) doneDay = snap.today;
+  g.done = g.done.filter((p) => bkkDay(p.pr || p.reg) === doneDay).sort((a, b) => (b.pr || b.reg) - (a.pr || a.reg));
+  if (!tab) tab = g.due.length ? 'due' : 'wait';
+  const list = g[tab];
   const L = [['due', 'ครบเวลา'], ['wait', 'รอผล'], ['done', 'เสร็จสิ้น']];
-  const empty = { due: 'ไม่มีรายการที่ครบเวลา', wait: 'ไม่มีรายการที่รอผล กด “สแกน” เพื่อเพิ่มผู้ป่วย', done: 'ยังไม่มีรายการที่พิมพ์ผลแล้ว' }[tab];
+  const empty = { due: 'ไม่มีรายการที่ครบเวลา', wait: 'ไม่มีรายการที่รอผล กด “สแกน” เพื่อเพิ่มผู้ป่วย', done: 'ไม่มีรายการในวันนี้' }[tab];
+  const dayBar = tab === 'done' ? '<div class="daybar"><button data-day="-1">◀</button><span class="mono">' + dayLabel(doneDay, true) + (doneDay === snap.today ? ' (วันนี้)' : '') + '</span><button data-day="1"' + (doneDay >= snap.today ? ' disabled' : '') + '>▶</button>' +
+    (doneDay !== snap.today ? '<button data-day="today">วันนี้</button>' : '') + '</div>' : '';
   $app.innerHTML = installBanner() +
-    '<header><div><h1>คิวติดตามผล Lab</h1><div class="who">' + (mode === 'line' ? 'เข้าด้วย LINE' : 'เข้าด้วยรหัสแผนก') + ' · <span class="mono">' + fmt(nowMs()) + '</span></div></div></header>' +
-    '<div class="stabs" role="tablist">' + L.map(([k, l]) => '<button class="stab ' + k + '" role="tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '"><b class="mono">' + g[k].length + '</b>' + l + '</button>').join('') + '</div>' +
-    (g[tab].length ? '<div class="grid">' + g[tab].map((p) => card(p, admin)).join('') + '</div>' : '<div class="empty">' + empty + '</div>') +
-    '<button class="primary fab" data-act="scan">สแกน Barcode / QR</button>' + (scan ? scanSheet() : '');
-  if (hl) { const el = document.querySelector('.card.hl'); if (el) el.scrollIntoView({ block: 'center' }); }
+    '<div class="top"><div><b>LabAlert</b><span class="who">รหัส ' + esc(me ? me.code : '') + (admin ? ' · แอดมิน' : '') + '</span></div>' +
+    '<div class="right"><span class="date">' + esc(dayLabel(snap.today, true)) + '</span><button class="ghost" data-act="logout">ออก</button></div></div>' +
+    '<div class="tabs" role="tablist">' + L.map(([k, l]) => '<button class="tab ' + k + '" role="tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '">' + l + '<b class="mono">' + g[k].length + '</b></button>').join('') + '</div>' + dayBar +
+    (list.length ? (wide ? tableW(list, admin) : '<div class="list">' + list.map((p) => rowM(p, admin)).join('') + '</div>') : '<div class="empty">' + empty + '</div>') +
+    '<button class="primary fab" data-act="scan">+ สแกน</button>' + (scan ? scanSheet() : '');
+  if (hl) { const el = document.querySelector('.r.hl, tr.hl'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' }); }
 }
-function scanWait() { return scan.wait === 'custom' ? Math.max(5, +scan.custom || 0) : scan.wait; }
+
+/* ---------- แผ่นสแกน / เพิ่มผู้ป่วย ---------- */
+function scanWait() { return scan.wait === 'custom' ? Math.min(720, Math.max(5, +scan.custom || 5)) : scan.wait; }
+const inLine = () => !!(window.liff && mode === 'line' && liff.isInClient && liff.isInClient());
 function scanSheet() {
   const chips = [[45, '45 นาที'], [60, '1 ชม.'], [90, '1.5 ชม.'], [120, '2 ชม.']].map(([m, l]) => '<button data-wait="' + m + '" class="' + (scan.wait === m ? 'sel' : '') + '">' + l + '</button>').join('') +
     '<button data-wait="custom" class="' + (scan.wait === 'custom' ? 'sel' : '') + '">กำหนดเอง</button>';
-  return '<div class="sheet-bg"><div class="sheet"><div class="row"><b>เพิ่มผู้ป่วยเข้าคิว</b><button data-act="closescan">ปิด</button></div>' +
-    '<div id="reader"></div><div class="row"><button data-act="camera">เปิดกล้องสแกน</button><button data-act="photo">ถ่ายรูปบาร์โค้ด</button>' + (inLine() ? '<button data-act="lineqr">QR ด้วย LINE</button>' : '') + '</div><input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
-    '<label for="scanHn">HN</label><input id="scanHn" class="mono" inputmode="text" autocomplete="off" value="' + esc(scan.hn) + '">' +
+  return '<div class="sheet-bg"><div class="sheet"><div class="row"><b>เพิ่มผู้ป่วยเข้าคิว</b><button data-act="closescan">ปิด</button></div><div id="reader"></div>' +
+    '<div class="row g"><button data-act="camera">สแกนกล้อง</button><button data-act="photo">ถ่ายรูป</button><button data-act="padtoggle"' + (scan.pad ? ' class="primary"' : '') + '>พิมพ์เอง</button>' + (inLine() ? '<button data-act="lineqr">QR LINE</button>' : '') + '</div>' +
+    '<input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
+    '<div id="hnbox" class="hnbox mono ' + (scan.hn ? '' : 'empty-hn') + '">' + (scan.hn ? esc(scan.hn) : 'ยังไม่มี HN') + '</div>' + (scan.pad ? padHTML(true) : '') +
     '<div class="chips" role="group" aria-label="เวลาที่ให้แจ้งเตือน">' + chips + '</div>' +
-    (scan.wait === 'custom' ? '<label for="scanCustom">กำหนดเอง (นาที)</label><input id="scanCustom" type="number" min="5" step="5" value="' + esc(scan.custom) + '">' : '') +
-    '<div class="who" id="scanDue">แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')</div>' +
-    '<button class="primary" data-act="savescan" style="padding:11px">บันทึกคิว</button></div></div>';
+    (scan.wait === 'custom' ? '<div class="step"><button data-cust="-5">−5</button><b class="mono" id="custv">' + scanWait() + ' นาที</b><button data-cust="5">+5</button></div>' : '') +
+    '<div class="muted" id="scanDue">แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')</div>' +
+    '<button class="primary big" data-act="savescan">บันทึกคิว</button></div></div>';
 }
-
-/* ---------- ข้อมูล ---------- */
-async function load(quiet) {
-  try { setSnap(await call('apiList', auth())); }
-  catch (e) { if (!quiet) toast(e.message); if (mode === 'app') { mode = null; appToken = null; } }
+function updateScanHn() {
+  const b = document.getElementById('hnbox'); if (!b) return;
+  b.textContent = scan.hn || 'ยังไม่มี HN'; b.classList.toggle('empty-hn', !scan.hn);
 }
-window.addEventListener('resize', () => { if (mode && !scan) render(); });
-function schedule() { clearInterval(timer); timer = setInterval(() => { if (mode && !scan && !busy) load(true).then(render); else if (mode && !scan) render(); }, 20000); }
-async function doCall(fn, ...args) {
-  if (busy) return; busy = true;
-  try { setSnap(await call(fn, auth(), ...args)); return true; }
-  catch (e) { toast(e.message); return false; }
-  finally { busy = false; }
+function updateScanDue() {
+  const d = document.getElementById('scanDue'); if (d) d.innerHTML = 'แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')';
+  const v = document.getElementById('custv'); if (v) v.textContent = scanWait() + ' นาที';
 }
-
-/* ---------- สแกน ---------- */
-const inLine = () => !!(window.liff && mode === 'line' && liff.isInClient && liff.isInClient());
 async function lineQr() {
   try { const r = await liff.scanCodeV2(); if (r && r.value) { scan.hn = normHN(r.value); render(); } }
-  catch (e) { toast('สแกนด้วย LINE ไม่ได้ ใช้ “เปิดกล้องสแกน” แทน'); }
+  catch (e) { toast('สแกนด้วย LINE ไม่ได้ ใช้ “สแกนกล้อง” แทน'); }
 }
 async function startCamera() {
-  if (!window.Html5Qrcode) { toast('เปิดกล้องไม่ได้ ใส่ HN ด้วยมือแทน'); return; }
+  if (!window.Html5Qrcode) { toast('เปิดกล้องไม่ได้ กด “พิมพ์เอง” แทน'); return; }
   try {
     // ลดชนิดบาร์โค้ดที่ลองอ่านให้เหลือที่ใช้บ่อย ช่วยลดการอ่านเพี้ยน และใช้ตัวอ่านของเบราว์เซอร์ถ้ามี (Chrome บน Android)
     const F = window.Html5QrcodeSupportedFormats || {};
@@ -312,28 +410,57 @@ async function startCamera() {
         if (txt === last) n++; else { last = txt; n = 1; }
         if (n >= 2) { scan.hn = normHN(txt); h.stop().catch(() => {}); toast('อ่านได้ ' + normHN(txt) + ' ตรวจให้ตรงกับสติกเกอร์'); render(); }
       }, () => {});
-  } catch (e) { toast('เปิดกล้องสดไม่ได้ (' + String((e && e.message) || e).slice(0, 60) + ') ลองกด “ถ่ายรูปบาร์โค้ด” แทน'); }
+  } catch (e) { toast('เปิดกล้องสดไม่ได้ (' + String((e && e.message) || e).slice(0, 60) + ') ลองกด “ถ่ายรูป” แทน'); }
 }
 async function scanImage(file) {
   if (!file) return;
-  if (!window.Html5Qrcode) { toast('ไม่มีตัวอ่านบาร์โค้ด พิมพ์ HN ด้วยมือแทน'); return; }
-  try {
-    const h = new Html5Qrcode('reader');
-    const r = await h.scanFile(file, false);
-    scan.hn = normHN(r); toast('อ่านได้: ' + scan.hn);
-  } catch (e) { toast('อ่านบาร์โค้ดจากรูปไม่ได้ ถ่ายให้ใกล้ ชัด และตรงขึ้น หรือพิมพ์ HN'); }
+  if (!window.Html5Qrcode) { toast('ไม่มีตัวอ่านบาร์โค้ด กด “พิมพ์เอง” แทน'); return; }
+  try { const h = new Html5Qrcode('reader'); const r = await h.scanFile(file, false); scan.hn = normHN(r); toast('อ่านได้: ' + scan.hn); }
+  catch (e) { toast('อ่านบาร์โค้ดจากรูปไม่ได้ ถ่ายให้ใกล้ ชัด และตรงขึ้น หรือกด “พิมพ์เอง”'); }
   render();
 }
 
+/* ---------- ข้อมูล ---------- */
+async function load(quiet) {
+  try { setSnap(await call('apiList', auth(), tab === 'done' ? doneDay : null)); }
+  catch (e) {
+    if (/ตั้งรหัสผ่านใหม่/.test(e.message)) { mustChange = true; return; }
+    if (/หมดเวลา|ยังไม่ได้เข้าสู่ระบบ/.test(e.message)) { localLogout('หมดเวลาเข้าใช้งาน กรุณาเข้าสู่ระบบใหม่'); return; }
+    if (!quiet) toast(e.message);
+  }
+}
+window.addEventListener('resize', () => { if (mode && !scan && !mustChange) render(); });
+function schedule() { clearInterval(timer); timer = setInterval(async () => { if (mode && !scan && !busy && !mustChange) { await load(true); render(); } else if (mode && !scan && !mustChange) render(); }, 20000); }
+async function doCall(fn, ...args) {
+  if (busy) return false; busy = true;
+  try { await call(fn, auth(), ...args); await load(true); return true; }
+  catch (e) { toast(e.message); return false; }
+  finally { busy = false; }
+}
+
+/* ---------- เริ่มทำงาน ---------- */
+async function init() {
+  render();
+  if (!API || pendingApi) return;
+  try { CFG.liffId = (await call('apiConfig')).liffId || ''; } catch (e) { /* ใช้รหัสพนักงานแทน */ }
+  if (CFG.liffId && window.liff) {
+    try { await liff.init({ liffId: CFG.liffId }); if (liff.isLoggedIn()) mode = 'line'; } catch (e) { /* ใช้รหัสพนักงานแทน */ }
+  }
+  if (!mode && store.get('tok')) {   // กลับมาเปิดแอปอีกครั้ง: ใช้ session เดิมโดยไม่ต้องใส่รหัสซ้ำ
+    appToken = store.get('tok'); mode = 'app';
+    try { setSnap(await call('apiList', auth())); }
+    catch (e) { if (/ตั้งรหัสผ่านใหม่/.test(e.message)) mustChange = true; else localLogout(''); }
+  } else if (mode === 'line') await load(true);
+  if (hl && mode) { const p = snap.patients.filter((x) => normHN(x.hn) === normHN(hl) && !x.pr)[0]; if (p) tab = cat(p); }
+  render();
+}
+async function boot() {
+  await init();
+  if (mode && !mustChange) { schedule(); if (CFG.mode === 'scan') { scan = { hn: CFG.hn || '', wait: 45, custom: 30, pad: false }; render(); } }
+}
+
 /* ---------- เหตุการณ์ ---------- */
-document.addEventListener('input', (e) => {
-  if (!scan) return;
-  if (e.target.id === 'scanHn') scan.hn = e.target.value;
-  if (e.target.id === 'scanCustom') { scan.custom = e.target.value; document.getElementById('scanDue').innerHTML = 'แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')'; }
-  if (e.target.id === 'nick') store.set('nick', e.target.value);
-});
 document.addEventListener('change', (e) => { if (e.target.id === 'scanFile') scanImage(e.target.files[0]); });
-document.addEventListener('change', (e) => { if (e.target.id === 'scanHn' && scan) { scan.hn = normHN(e.target.value); e.target.value = scan.hn; } });
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
@@ -348,22 +475,22 @@ document.addEventListener('click', async (e) => {
     if (d.api === 'reset') { store.set('api', ''); store.set('tok', ''); API = ''; mode = null; appToken = null; render(); return; }
   }
   if (b.id === 'lineLogin') { try { liff.login(); } catch (x) { toast('เปิดผ่านแอป LINE เพื่อเข้าสู่ระบบ'); } return; }
-  if (d.pin != null) {
-    pinErr = '';
-    if (d.pin === '⌫') pin = pin.slice(0, -1);
-    else if (d.pin === 'OK') {
-      if (pin.length < 4) { pinErr = 'ใส่รหัสอย่างน้อย 4 หลัก'; }
-      else {
-        const p = pin; pin = '';
-        try { appToken = (await call('apiLogin', p)).token; store.set('tok', appToken); mode = 'app'; setSnap(await call('apiList', auth())); schedule(); if (CFG.mode === 'scan') scan = { hn: CFG.hn || '', wait: 45, custom: 30 }; } catch (x) { mode = null; appToken = null; pinErr = x.message; }
-      }
-    } else if (pin.length < 8) pin += d.pin;
-    render(); return;
+  if (d.k != null) { padInput(d.k); return; }
+  if (d.field) { if (mode === 'app' && mustChange) cp.field = d.field; else lg.field = d.field; render(); return; }
+  if (d.act === 'login') { await doLogin(); return; }
+  if (d.act === 'savepin') { await doSavePin(); return; }
+  if (d.act === 'logout') { localLogout(''); render(); return; }
+  if (d.tab) { tab = d.tab; if (tab === 'done') { doneDay = snap.today; await load(true); } render(); return; }   // เปิดแท็บเสร็จสิ้นให้ขึ้นวันที่ปัจจุบันเสมอ
+  if (d.day) {
+    doneDay = d.day === 'today' ? snap.today : shiftDay(doneDay, +d.day);
+    if (doneDay > snap.today) doneDay = snap.today;
+    await load(true); render(); return;
   }
-  if (d.tab) { tab = d.tab; render(); return; }
   if (d.wait) { scan.wait = d.wait === 'custom' ? 'custom' : +d.wait; render(); return; }
-  if (d.act === 'scan') { scan = { hn: '', wait: 45, custom: 30 }; render(); return; }
+  if (d.cust) { scan.custom = Math.min(720, Math.max(5, (+scan.custom || 30) + (+d.cust))); updateScanDue(); return; }
+  if (d.act === 'scan') { scan = { hn: '', wait: 45, custom: 30, pad: false }; render(); return; }
   if (d.act === 'closescan') { try { if (window._h) await window._h.stop(); } catch (x) {} scan = null; render(); return; }
+  if (d.act === 'padtoggle') { scan.pad = !scan.pad; render(); return; }
   if (d.act === 'install') { if (deferredInstall) { deferredInstall.prompt(); try { await deferredInstall.userChoice; } catch (x) {} deferredInstall = null; render(); } return; }
   if (d.act === 'hideinstall') { store.set('hideInstall', '1'); render(); return; }
   if (d.act === 'camera') { await startCamera(); return; }
@@ -371,18 +498,15 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'photo') { document.getElementById('scanFile').click(); return; }
   if (d.act === 'savescan') {
     const hn = normHN(scan.hn), w = scanWait();
-    if (!/^[0-9A-Za-z\-\/]{3,20}$/.test(hn)) { toast('รูปแบบ HN ไม่ถูกต้อง'); return; }
-    if (await doCall('apiAdd', hn, w)) { scan = null; hl = ''; toast('เพิ่ม HN ' + hn + ' แล้ว แจ้งเตือน ' + fmt(nowMs() + w * 60000)); render(); }
+    if (!/^[0-9A-Za-z\-\/]{3,20}$/.test(hn)) { toast('กรอก HN ก่อน (สแกนหรือกด “พิมพ์เอง”)'); return; }
+    if (await doCall('apiAdd', hn, w)) { scan = null; hl = ''; tab = 'wait'; toast('เพิ่ม HN ' + hn + ' แล้ว แจ้งเตือน ' + fmt(nowMs() + w * 60000)); render(); }
     return;
   }
   if (d.do === 'follow') { if (await doCall('apiFollow', d.id)) { hlMode = ''; hl = ''; toast('บันทึกตามผลแล้ว ระบบแจ้งอีกครั้งใน 10 นาที'); render(); } return; }
   if (d.do === 'print') { if (await doCall('apiPrint', d.id)) { toast('บันทึกพิมพ์ผลแล้ว ย้ายไปแท็บเสร็จสิ้น'); render(); } return; }
   if (d.hist) { openH[d.hist] = !openH[d.hist]; render(); return; }
 });
-async function boot() {
-  await init();
-  if (mode) { schedule(); if (CFG.mode === 'scan') { scan = { hn: CFG.hn || '', wait: 45, custom: 30 }; render(); } }
-}
+document.addEventListener('click', (e) => { const l = e.target.closest && e.target.closest('.l2'); if (l && l.dataset.hist) { openH[l.dataset.hist] = !openH[l.dataset.hist]; render(); } });
 boot();
 </script>
 </body>
