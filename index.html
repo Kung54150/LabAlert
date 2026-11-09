@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="th">
 <head>
-<base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LabAlert อายุรกรรม</title>
@@ -74,12 +73,18 @@ h1{font-size:1.3rem;margin:0}
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
-const CFG = <?!= cfg ?>;
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+const qs = new URLSearchParams(location.search);
+const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
+let API = store.get('api') || '';
+if (!API_RE.test(API)) API = '';
+const qApi = qs.get('api') || '';
+let pendingApi = API_RE.test(qApi) && qApi !== API ? qApi : '';   // ลิงก์จาก LINE: ให้ผู้ใช้ยืนยันก่อนเชื่อมต่อ
+const CFG = { liffId: '', mode: qs.get('mode') || '', hn: qs.get('hn') || '' };
 const $app = document.getElementById('app');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (ms) => ms ? new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Bangkok' }) : '–';
 const dur = (m) => m < 60 ? m + ' นาที' : ((m / 60) % 1 ? (m / 60).toFixed(1) : m / 60) + ' ชม.';
-const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 
 let mode = null;            // 'line' | 'app' | null
 let appToken = null, pin = '', pinErr = '';
@@ -88,8 +93,15 @@ let tab = 'wait', hl = CFG.hn || '', hlMode = CFG.mode === 'follow' ? CFG.hn : '
 let scan = null;            // { hn, wait, custom, open }
 let busy = false, timer = null;
 
-const call = (fn, ...args) => new Promise((ok, no) =>
-  google.script.run.withSuccessHandler(ok).withFailureHandler((e) => no(new Error(String((e && e.message) || e).replace(/^Error:\s*/, ''))))[fn](...args));
+const call = async (fn, ...args) => {
+  let r;
+  try { r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }) }); }
+  catch (e) { throw new Error('เชื่อมต่อระบบไม่ได้ ตรวจอินเทอร์เน็ตหรือลิงก์ Apps Script'); }
+  let j;
+  try { j = await r.json(); } catch (e) { throw new Error('ระบบตอบกลับผิดรูปแบบ ตรวจว่า Deploy เป็น Anyone และเป็นเวอร์ชันล่าสุด'); }
+  if (!j.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
+  return j.data;
+};
 const nowMs = () => Date.now() + offset;
 function auth() {
   if (mode === 'line') return { type: 'line', accessToken: liff.getAccessToken() };
@@ -159,6 +171,8 @@ function card(p, admin) {
 /* ---------- เข้าสู่ระบบ ---------- */
 async function init() {
   render();
+  if (!API || pendingApi) return;
+  try { CFG.liffId = (await call('apiConfig')).liffId || ''; } catch (e) { /* ใช้รหัสแผนกแทน */ }
   if (CFG.liffId && window.liff) {
     try {
       await liff.init({ liffId: CFG.liffId });
@@ -172,6 +186,16 @@ async function init() {
   if (hl) { const p = snap.patients.filter((x) => x.hn === hl && !x.pr)[0]; if (p) tab = stateOf(p); }
   render();
 }
+function setupUI() {
+  $app.innerHTML = '<div class="login"><h1>LabAlert อายุรกรรม</h1><div class="who">ใส่ลิงก์ Web app ของ Apps Script (ขึ้นต้น https://script.google.com/macros/s/ ลงท้าย /exec) ครั้งเดียวต่อเครื่อง</div>' +
+    '<input id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec" inputmode="url" autocomplete="off" style="font:inherit;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%">' +
+    '<button class="primary" data-api="save" style="width:100%;padding:11px">บันทึก</button></div>';
+}
+function confirmApiUI() {
+  const tail = pendingApi.replace(/\/(exec|dev)$/, '').slice(-8);
+  $app.innerHTML = '<div class="login"><h1>เชื่อมต่อระบบ</h1><div class="who">ลิงก์นี้ขอเชื่อมต่อกับระบบที่ลงท้ายด้วย <b class="mono">…' + esc(tail) + '</b> ยืนยันเมื่อเป็นระบบของแผนกเท่านั้น</div>' +
+    '<button class="primary" data-api="confirm" style="width:100%;padding:11px">ใช่ เชื่อมต่อ</button><button data-api="cancel" style="width:100%">ยกเลิก</button></div>';
+}
 function loginUI() {
   const lineBtn = (CFG.liffId && window.liff) ? '<button class="primary" id="lineLogin">เข้าสู่ระบบด้วย LINE</button><div class="who">หรือใช้รหัสแผนก</div>' : '';
   $app.innerHTML = '<div class="login"><h1>LabAlert อายุรกรรม</h1>' + lineBtn +
@@ -183,7 +207,14 @@ function loginUI() {
 
 /* ---------- แสดงผล ---------- */
 function render() {
-  if (!mode) return loginUI();
+  if (pendingApi) return confirmApiUI();
+  if (!API) return setupUI();
+  if (!mode) {
+    loginUI();
+    const l = $app.querySelector('.login');
+    if (l) l.insertAdjacentHTML('beforeend', '<button class="ghost" data-api="reset" style="font-size:.78rem">เปลี่ยนการเชื่อมต่อระบบ</button>');
+    return;
+  }
   const admin = isAdmin();
   const g = { due: [], wait: [], done: [] };
   snap.patients.forEach((p) => g[stateOf(p)].push(p));
@@ -204,7 +235,7 @@ function scanSheet() {
   const chips = [[45, '45 นาที'], [60, '1 ชม.'], [90, '1.5 ชม.'], [120, '2 ชม.']].map(([m, l]) => '<button data-wait="' + m + '" class="' + (scan.wait === m ? 'sel' : '') + '">' + l + '</button>').join('') +
     '<button data-wait="custom" class="' + (scan.wait === 'custom' ? 'sel' : '') + '">กำหนดเอง</button>';
   return '<div class="sheet-bg"><div class="sheet"><div class="row"><b>เพิ่มผู้ป่วยเข้าคิว</b><button data-act="closescan">ปิด</button></div>' +
-    (CFG.scannerUrl && CFG.appUrl ? '<a class="btnlink" href="' + esc(CFG.scannerUrl + '?app=' + encodeURIComponent(CFG.appUrl)) + '" target="_top">สแกนด้วยกล้อง (เปิดหน้าสแกน)</a>' : '') + '<div id="reader"></div><div class="row"><button data-act="camera">เปิดกล้องสแกน</button><button data-act="photo">ถ่ายรูปบาร์โค้ด</button></div><input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
+    '<div id="reader"></div><div class="row"><button data-act="camera">เปิดกล้องสแกน</button><button data-act="photo">ถ่ายรูปบาร์โค้ด</button>' + (inLine() ? '<button data-act="lineqr">QR ด้วย LINE</button>' : '') + '</div><input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
     '<label for="scanHn">HN</label><input id="scanHn" class="mono" inputmode="text" autocomplete="off" value="' + esc(scan.hn) + '">' +
     '<div class="chips" role="group" aria-label="เวลาที่ให้แจ้งเตือน">' + chips + '</div>' +
     (scan.wait === 'custom' ? '<label for="scanCustom">กำหนดเอง (นาที)</label><input id="scanCustom" type="number" min="5" step="5" value="' + esc(scan.custom) + '">' : '') +
@@ -227,10 +258,12 @@ async function doCall(fn, ...args) {
 }
 
 /* ---------- สแกน ---------- */
+const inLine = () => !!(window.liff && mode === 'line' && liff.isInClient && liff.isInClient());
+async function lineQr() {
+  try { const r = await liff.scanCodeV2(); if (r && r.value) { scan.hn = String(r.value).trim(); render(); } }
+  catch (e) { toast('สแกนด้วย LINE ไม่ได้ ใช้ “เปิดกล้องสแกน” แทน'); }
+}
 async function startCamera() {
-  if (window.liff && mode === 'line' && liff.isInClient() && liff.scanCodeV2) {
-    try { const r = await liff.scanCodeV2(); if (r && r.value) { scan.hn = r.value.trim(); render(); } return; } catch (e) { /* ใช้กล้องเว็บแทน */ }
-  }
   if (!window.Html5Qrcode) { toast('เปิดกล้องไม่ได้ ใส่ HN ด้วยมือแทน'); return; }
   try {
     const h = new Html5Qrcode('reader'); window._h = h;
@@ -260,6 +293,16 @@ document.addEventListener('change', (e) => { if (e.target.id === 'scanFile') sca
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
+  if (d.api) {
+    if (d.api === 'save') {
+      const v = (document.getElementById('apiUrl').value || '').trim();
+      if (!API_RE.test(v)) { toast('ลิงก์ไม่ถูกต้อง ต้องขึ้นต้น https://script.google.com/macros/s/ และลงท้าย /exec'); return; }
+      API = v; store.set('api', v); await boot(); return;
+    }
+    if (d.api === 'confirm') { API = pendingApi; store.set('api', API); pendingApi = ''; await boot(); return; }
+    if (d.api === 'cancel') { pendingApi = ''; if (API) await boot(); else render(); return; }
+    if (d.api === 'reset') { store.set('api', ''); store.set('tok', ''); API = ''; mode = null; appToken = null; render(); return; }
+  }
   if (b.id === 'lineLogin') { try { liff.login(); } catch (x) { toast('เปิดผ่านแอป LINE เพื่อเข้าสู่ระบบ'); } return; }
   if (d.pin != null) {
     pinErr = '';
@@ -278,6 +321,7 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'scan') { scan = { hn: '', wait: 45, custom: 30 }; render(); return; }
   if (d.act === 'closescan') { try { if (window._h) await window._h.stop(); } catch (x) {} scan = null; render(); return; }
   if (d.act === 'camera') { await startCamera(); return; }
+  if (d.act === 'lineqr') { await lineQr(); return; }
   if (d.act === 'photo') { document.getElementById('scanFile').click(); return; }
   if (d.act === 'savescan') {
     const hn = scan.hn.trim(), w = scanWait();
@@ -289,7 +333,11 @@ document.addEventListener('click', async (e) => {
   if (d.do === 'print') { if (await doCall('apiPrint', d.id)) { toast('บันทึกพิมพ์ผลแล้ว ย้ายไปแท็บเสร็จสิ้น'); render(); } return; }
   if (d.hist) { openH[d.hist] = !openH[d.hist]; render(); return; }
 });
-init().then(() => { if (mode) { schedule(); if (CFG.mode === 'scan') { scan = { hn: CFG.hn || '', wait: 45, custom: 30 }; render(); } } });
+async function boot() {
+  await init();
+  if (mode) { schedule(); if (CFG.mode === 'scan') { scan = { hn: CFG.hn || '', wait: 45, custom: 30 }; render(); } }
+}
+boot();
 </script>
 </body>
 </html>
