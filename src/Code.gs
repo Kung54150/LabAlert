@@ -10,7 +10,6 @@
  *   SHEET_ID          (ไม่บังคับ) ถ้าไม่ได้ผูกสคริปต์กับชีต
  */
 const REPEAT_MIN = 10;          // แจ้งซ้ำเมื่อไม่มีใครตอบ
-const EXTEND_OPTIONS = [5, 15, 30];
 const KEEP_DONE_HOURS = 24;     // แสดงรายการในแท็บเสร็จสิ้นย้อนหลังกี่ชั่วโมง
 const SCHEMA = {
   Patients: ['id', 'queue', 'hn', 'registered_at', 'wait_min', 'next_alert_at', 'alert_count',
@@ -198,23 +197,6 @@ function apiFollow(auth, id) {
   });
 }
 
-function apiExtend(auth, id, min) {
-  const w = who_(auth);
-  min = +min;
-  if (EXTEND_OPTIONS.indexOf(min) < 0) throw new Error('เลือกได้เฉพาะ ' + EXTEND_OPTIONS.join('/') + ' นาที');
-  return withLock_(() => {
-    const p = findActive_(id);
-    const fs = readAll_('FollowUps').filter((f) => f.patient_id === id).sort((a, b) => a.n - b.n);
-    const last = fs[fs.length - 1];
-    if (!last) throw new Error('ยังไม่มีการตามผล');
-    if (ms_(p.last_alert_at) > ms_(last.at)) throw new Error('ระบบแจ้งเตือนไปแล้ว');
-    update_('FollowUps', last._row, { ext_min: min });
-    update_('Patients', p._row, { next_alert_at: new Date(ms_(last.at) + min * 60000) });
-    log_(w.name, 'extend', 'HN ' + p.hn + ' แจ้งอีก ' + min + ' นาที');
-    return snapshot_();
-  });
-}
-
 function apiPrint(auth, id) {
   const w = who_(auth);
   return withLock_(() => {
@@ -238,14 +220,19 @@ function checkAlerts() {
       hn: String(r.hn), count: +r.alert_count || 0,
       over: Math.max(0, Math.round((now - ms_(r.registered_at) - (+r.wait_min) * 60000) / 60000)),
     }));
-    try {
-      push_([alertFlex_(items)]);
-    } catch (err) {
-      log_('system', 'push_error', String(err));
-      return; // ลองใหม่ในนาทีถัดไป
+    // 1 เคสต่อ 1 กล่องข้อความ (LINE ส่งได้สูงสุด 5 กล่องต่อคำขอ) ส่งสำเร็จเฉพาะชุดไหนจึงอัปเดตเฉพาะชุดนั้น
+    const sent = [];
+    for (let i = 0; i < items.length; i += 5) {
+      try {
+        push_(items.slice(i, i + 5).map(alertFlex_));
+        for (let j = i; j < Math.min(i + 5, items.length); j++) sent.push(j);
+      } catch (err) {
+        log_('system', 'push_error', String(err));
+      }
     }
+    if (!sent.length) return; // ลองใหม่ในนาทีถัดไป
     const at = new Date(now), next = new Date(now + REPEAT_MIN * 60000);
-    due.forEach((r) => {
+    sent.map((j) => due[j]).forEach((r) => {
       update_('Patients', r._row, { alert_count: (+r.alert_count || 0) + 1, last_alert_at: at, next_alert_at: next });
       log_('system', 'alert', 'HN ' + r.hn + ' ครั้งที่ ' + ((+r.alert_count || 0) + 1));
     });
@@ -264,28 +251,18 @@ function push_(messages) {
 
 function liffUrl_(query) { return 'https://liff.line.me/' + prop_('LIFF_ID') + (query ? '?' + query : ''); }
 
-function alertFlex_(items) {
-  const body = items.map((i) => ({
-    type: 'box', layout: 'vertical', margin: 'md',
-    contents: [
-      { type: 'text', text: 'HN ' + i.hn, weight: 'bold', size: 'lg' },
-      { type: 'text', size: 'sm', color: '#666666',
-        text: i.count === 0 ? 'ครบเวลาตามผล' : 'แจ้งซ้ำครั้งที่ ' + (i.count + 1) + ' · เลยกำหนด ' + i.over + ' นาที' },
-    ],
-  }));
-  const buttons = items.slice(0, 4).map((i) => ({
-    type: 'button', style: 'primary', height: 'sm', margin: 'sm',
-    action: { type: 'uri', label: ('ตามผล HN ' + i.hn).slice(0, 20), uri: liffUrl_('mode=follow&hn=' + encodeURIComponent(i.hn)) },
-  }));
-  buttons.push({ type: 'button', style: 'secondary', height: 'sm', margin: 'sm',
-    action: { type: 'uri', label: 'เปิดรายการทั้งหมด', uri: liffUrl_('') } });
+function alertFlex_(i) {
+  const text = i.count === 0 ? 'ครบเวลาตามผล' : 'แจ้งซ้ำครั้งที่ ' + (i.count + 1) + ' · เลยกำหนด ' + i.over + ' นาที';
   return {
-    type: 'flex', altText: 'HN ' + items.map((i) => i.hn).join(', ') + ' ครบเวลาตามผล',
+    type: 'flex', altText: 'HN ' + i.hn + ' ' + text,
     contents: {
       type: 'bubble',
-      header: { type: 'box', layout: 'vertical', contents: [{ type: 'text', text: 'LabAlert · ครบเวลาตามผล', weight: 'bold', color: '#B3261E' }] },
-      body: { type: 'box', layout: 'vertical', contents: body },
-      footer: { type: 'box', layout: 'vertical', contents: buttons },
+      header: { type: 'box', layout: 'vertical', contents: [{ type: 'text', text: 'LabAlert · ' + text, weight: 'bold', size: 'sm', color: i.count ? '#B3261E' : '#946000' }] },
+      body: { type: 'box', layout: 'vertical', contents: [{ type: 'text', text: 'HN ' + i.hn, weight: 'bold', size: 'xl' }] },
+      footer: { type: 'box', layout: 'vertical', contents: [
+        { type: 'button', style: 'primary', height: 'sm', action: { type: 'uri', label: 'ตามผล', uri: liffUrl_('mode=follow&hn=' + encodeURIComponent(i.hn)) } },
+        { type: 'button', style: 'secondary', height: 'sm', margin: 'sm', action: { type: 'uri', label: 'เปิดรายการทั้งหมด', uri: liffUrl_('') } },
+      ] },
     },
   };
 }

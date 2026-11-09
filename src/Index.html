@@ -26,20 +26,30 @@ h1{font-size:1.3rem;margin:0}
 .tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:10px;width:fit-content;max-width:100%}
 .tabs button{border:0;background:transparent;white-space:nowrap}
 .tabs button[aria-selected="true"]{background:var(--surface);font-weight:600}
-.stats{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem}.stats b{font-size:1.1rem;margin-right:4px}
+.stabs{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;max-width:620px}
+.stab{border:0;border-bottom:4px solid transparent;border-radius:0;background:transparent;padding:9px 4px;font-size:.85rem;display:flex;flex-direction:column;align-items:center;line-height:1.25}
+.stab b{font-size:1.2rem}.stab.due{color:var(--crit)}.stab.wait{color:var(--warn)}.stab.done{color:var(--ok)}
+.stab[aria-selected="true"]{font-weight:600}
+.stab[aria-selected="true"].due{border-bottom-color:var(--crit);background:var(--crit-soft)}
+.stab[aria-selected="true"].wait{border-bottom-color:#E2A412;background:var(--warn-soft)}
+.stab[aria-selected="true"].done{border-bottom-color:var(--ok);background:var(--ok-soft)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:10px}
-.card{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
-.card.due{border-left-color:var(--crit)}.card.fol{border-left-color:var(--warn)}.card.done{border-left-color:var(--ok)}
+.card{background:var(--surface);border:1px solid var(--line);border-left:8px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card.due{border-left-color:var(--crit)}.card.wait{border-left-color:#E2A412}.card.done{border-left-color:var(--ok)}
 .card.hl{outline:3px solid var(--accent)}
 .row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
 .q{font-size:.75rem;color:var(--muted)}.hn{font-size:1.2rem;font-weight:600}
-.pill{font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:99px}
-.pill.wait{background:var(--sunk);color:var(--muted)}.pill.due{background:var(--crit-soft);color:var(--crit)}
-.pill.fol{background:var(--warn-soft);color:var(--warn)}.pill.done{background:var(--ok-soft);color:var(--ok)}
-dl{display:grid;grid-template-columns:auto 1fr;gap:0 10px;font-size:.8rem;margin:0}dt{color:var(--muted)}dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.pill{font-size:.78rem;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.pill.due{background:var(--crit);color:#fff;animation:blink 1s steps(2,start) infinite}
+.pill.wait{background:var(--warn-soft);color:var(--warn)}.pill.done{background:var(--ok-soft);color:var(--ok)}
+@keyframes blink{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.pill.due{animation:none;outline:2px solid var(--crit)}}
+.latest{font-size:.8rem;color:var(--muted)}
+.resp{font-size:.82rem;font-weight:600;color:var(--crit);background:var(--crit-soft);border-radius:6px;padding:3px 8px}
 .acts{display:flex;gap:6px}.acts button{flex:1}
-.ext{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
-.ext button{padding:2px 10px;border-radius:99px;font-size:.78rem}.ext button.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.histbtn{align-self:flex-start;border:0;background:transparent;color:var(--accent);padding:2px 0;font-size:.8rem}
+.hist{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.78rem;border-top:1px dashed var(--line);padding-top:6px}
+.hist .sys{color:var(--muted)}
 .hint{background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:6px 10px;font-size:.82rem}
 .empty{color:var(--muted);text-align:center;padding:32px 0}
 .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));border-radius:99px;padding:13px 24px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
@@ -73,7 +83,7 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { ret
 let mode = null;            // 'line' | 'app' | null
 let appToken = null, pin = '', pinErr = '';
 let snap = { now: Date.now(), patients: [] }, offset = 0;
-let tab = 'active', hl = CFG.hn || '', hlMode = CFG.mode === 'follow' ? CFG.hn : '';
+let tab = 'wait', hl = CFG.hn || '', hlMode = CFG.mode === 'follow' ? CFG.hn : '';
 let scan = null;            // { hn, wait, custom, open }
 let busy = false, timer = null;
 
@@ -87,18 +97,61 @@ function auth() {
 function toast(s) { const t = document.getElementById('toast'); t.textContent = s; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2400); }
 function setSnap(s) { snap = s; offset = s.now - Date.now(); }
 
+const REP = 10 * 60000;
+const dueAt = (p) => p.reg + p.wait * 60000;
+/** จำลองรอบแจ้งเตือน: ครบเวลาแล้วแจ้งทุก 10 นาที ถ้ามีคนตามผลก่อน ข้ามรอบนั้นแล้วนับ 10 นาทีใหม่ (ใช้แสดงเวลารอตอบรับในหน้า Admin) */
+function sim(p) {
+  const al = [], F = p.fols; let nx = dueAt(p), i = 0;
+  for (let g = 0; g < 500; g++) {
+    while (i < F.length && F[i].at <= nx) { nx = F[i].at + REP; i++; }
+    if (p.pr && nx >= p.pr) break;
+    if (nx > nowMs()) break;
+    al.push(nx); nx += REP;
+  }
+  return al;
+}
 function stateOf(p) {
   if (p.pr) return 'done';
-  if (!p.fols.length) return nowMs() >= p.reg + p.wait * 60000 ? 'due' : 'wait';
+  if (!p.fols.length) return nowMs() >= dueAt(p) ? 'due' : 'wait';
   const lf = p.fols[p.fols.length - 1];
-  return p.lastAlert && p.lastAlert > lf.at ? 'due' : 'fol';
+  return p.lastAlert && p.lastAlert > lf.at ? 'due' : 'wait';
 }
-const dueAt = (p) => p.reg + p.wait * 60000;
+function cycleStart(p) { const lf = p.fols[p.fols.length - 1]; const a = sim(p).filter((t) => !lf || t > lf.at); return a.length ? a[0] : null; }
+function respOf(p, k) { const f = p.fols[k], prev = k ? p.fols[k - 1].at : -1; const a = sim(p).filter((t) => t > prev && t <= f.at); return a.length ? f.at - a[0] : null; }
+const mins = (ms) => Math.max(0, Math.round(ms / 60000));
+const isAdmin = () => window.innerWidth >= 900;
 function pill(p) {
   const s = stateOf(p);
-  const t = { wait: 'เหลือ ' + Math.max(0, Math.ceil((dueAt(p) - nowMs()) / 60000)) + ' นาที', due: 'ครบเวลา ยังไม่ตามผล',
-    fol: 'ตามผลแล้ว ' + p.fols.length + ' ครั้ง · แจ้งอีก ' + fmt(p.next), done: 'พิมพ์ผลแล้ว' }[s];
-  return '<span class="pill ' + s + '">' + t + '</span>';
+  if (s === 'done') return '<span class="pill done">พิมพ์ผลแล้ว</span>';
+  if (s === 'due') return '<span class="pill due">ครบเวลา · ยังไม่ตามผล</span>';
+  const next = p.fols.length ? p.next : dueAt(p);
+  return '<span class="pill wait">รออีก ' + Math.max(0, Math.ceil((next - nowMs()) / 60000)) + ' นาที</span>';
+}
+function events(p, admin) {
+  const ev = [{ t: p.reg, o: 0, txt: 'ลงทะเบียน (รอ ' + dur(p.wait) + ') · ' + p.regBy }];
+  p.fols.forEach((f, k) => {
+    let x = 'ตามผลครั้งที่ ' + (k + 1) + ' · ' + f.by + ' (' + f.via + ')';
+    if (admin) { const r = respOf(p, k); x += r == null ? ' · ตามก่อนถึงเวลาแจ้ง' : ' · รอตอบรับ ' + mins(r) + ' นาที'; }
+    ev.push({ t: f.at, o: 1, txt: x });
+  });
+  if (p.pr) ev.push({ t: p.pr, o: 2, txt: 'พิมพ์ผล · ' + p.prBy });
+  if (admin) sim(p).forEach((t, k) => ev.push({ t: t, o: 1, sys: 1, txt: 'ระบบแจ้งเตือน LINE (' + (k + 1) + ')' }));
+  return ev.sort((a, b) => a.t - b.t || a.o - b.o);
+}
+const openH = {};
+function card(p, admin) {
+  const s = stateOf(p), ev = events(p, admin), main = ev.filter((e) => !e.sys), last = main[main.length - 1];
+  const open = openH[p.id], isHl = hl && p.hn === hl && !p.pr;
+  const cs = cycleStart(p);
+  const resp = admin && s === 'due' && cs != null ? '<div class="resp">รอตอบรับมาแล้ว ' + mins(nowMs() - cs) + ' นาที · แจ้งแล้ว ' + sim(p).filter((t) => t >= cs).length + ' ครั้ง</div>' : '';
+  const acts = p.pr ? '' : '<div class="acts"><button class="' + (s === 'due' ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล' + (p.fols.length ? ' (' + p.fols.length + ')' : '') + '</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผลแล้ว</button></div>';
+  return '<div class="card ' + s + (isHl ? ' hl' : '') + '" data-card="' + esc(p.id) + '">' +
+    '<div class="row"><span class="q">คิว ' + p.queue + '</span>' + pill(p) + '</div>' +
+    '<div class="row"><span class="hn mono">HN ' + esc(p.hn) + '</span><span class="q">รอ ' + dur(p.wait) + '</span></div>' + resp +
+    (isHl && hlMode ? '<div class="hint">กดปุ่ม “ตามผล” เมื่อคุณตามผลรายนี้แล้ว</div>' : '') +
+    '<div class="latest">ล่าสุด <span class="mono">' + fmt(last.t) + '</span> · ' + esc(last.txt.split(' · ')[0].replace(/\(.*$/, '')) + '</div>' + acts +
+    '<button class="histbtn" data-hist="' + esc(p.id) + '">' + (open ? 'ซ่อนประวัติ ▲' : 'ประวัติเวลา (' + ev.length + ') ▼') + '</button>' +
+    (open ? '<div class="hist">' + ev.slice().reverse().map((e) => '<span class="mono ' + (e.sys ? 'sys' : '') + '">' + fmt(e.t) + '</span><span class="' + (e.sys ? 'sys' : '') + '">' + esc(e.txt) + '</span>').join('') + '</div>' : '') + '</div>';
 }
 
 /* ---------- เข้าสู่ระบบ ---------- */
@@ -111,6 +164,7 @@ async function init() {
     } catch (e) { /* ใช้รหัสแผนกแทน */ }
   }
   if (mode) await load(true);
+  if (hl) { const p = snap.patients.filter((x) => x.hn === hl && !x.pr)[0]; if (p) tab = stateOf(p); }
   render();
 }
 function loginUI() {
@@ -125,34 +179,20 @@ function loginUI() {
 /* ---------- แสดงผล ---------- */
 function render() {
   if (!mode) return loginUI();
-  const act = snap.patients.filter((p) => !p.pr).sort((a, b) => dueAt(a) - dueAt(b));   // ผลควรออกก่อนอยู่บนสุด
-  const done = snap.patients.filter((p) => p.pr).sort((a, b) => b.pr - a.pr);
-  const c = { due: 0, wait: 0, fol: 0 };
-  act.forEach((p) => c[stateOf(p)]++);
-  const list = tab === 'active' ? act : done;
+  const admin = isAdmin();
+  const g = { due: [], wait: [], done: [] };
+  snap.patients.forEach((p) => g[stateOf(p)].push(p));
+  g.due.sort((a, b) => (cycleStart(a) || 0) - (cycleStart(b) || 0));           // รอนานสุดอยู่บน
+  g.wait.sort((a, b) => (a.fols.length ? a.next : dueAt(a)) - (b.fols.length ? b.next : dueAt(b))); // ผลควรออกก่อนอยู่บน
+  g.done.sort((a, b) => b.pr - a.pr);
+  const L = [['due', 'ครบเวลา'], ['wait', 'รอผล'], ['done', 'เสร็จสิ้น']];
+  const empty = { due: 'ไม่มีรายการที่ครบเวลา', wait: 'ไม่มีรายการที่รอผล กด “สแกน” เพื่อเพิ่มผู้ป่วย', done: 'ยังไม่มีรายการที่พิมพ์ผลแล้ว' }[tab];
   $app.innerHTML =
-    '<header><div><h1>คิวติดตามผล Lab</h1><div class="who">' + (mode === 'line' ? 'เข้าด้วย LINE' : 'เข้าด้วยรหัสแผนก') + ' · <span class="mono">' + fmt(nowMs()) + '</span></div></div>' +
-    '<div class="stats"><span><b class="mono" style="color:var(--crit)">' + c.due + '</b>ครบเวลา</span><span><b class="mono">' + c.wait + '</b>รอครบเวลา</span><span><b class="mono" style="color:var(--warn)">' + c.fol + '</b>ตามผลแล้ว</span></div></header>' +
-    '<div class="tabs" role="tablist"><button role="tab" data-tab="active" aria-selected="' + (tab === 'active') + '">กำลังติดตาม (' + act.length + ')</button>' +
-    '<button role="tab" data-tab="done" aria-selected="' + (tab === 'done') + '">เสร็จสิ้น (' + done.length + ')</button></div>' +
-    (list.length ? '<div class="grid">' + list.map(card).join('') + '</div>' : '<div class="empty">' + (tab === 'active' ? 'ยังไม่มีผู้ป่วยในคิว กด “สแกน” เพื่อเพิ่ม' : 'ยังไม่มีรายการที่พิมพ์ผลแล้ว') + '</div>') +
-    (tab === 'active' ? '<button class="primary fab" data-act="scan">สแกน Barcode / QR</button>' : '') +
-    (scan ? scanSheet() : '');
+    '<header><div><h1>คิวติดตามผล Lab</h1><div class="who">' + (mode === 'line' ? 'เข้าด้วย LINE' : 'เข้าด้วยรหัสแผนก') + ' · <span class="mono">' + fmt(nowMs()) + '</span></div></div></header>' +
+    '<div class="stabs" role="tablist">' + L.map(([k, l]) => '<button class="stab ' + k + '" role="tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '"><b class="mono">' + g[k].length + '</b>' + l + '</button>').join('') + '</div>' +
+    (g[tab].length ? '<div class="grid">' + g[tab].map((p) => card(p, admin)).join('') + '</div>' : '<div class="empty">' + empty + '</div>') +
+    '<button class="primary fab" data-act="scan">สแกน Barcode / QR</button>' + (scan ? scanSheet() : '');
   if (hl) { const el = document.querySelector('.card.hl'); if (el) el.scrollIntoView({ block: 'center' }); }
-}
-function card(p) {
-  const s = stateOf(p), l = p.fols[p.fols.length - 1];
-  const isHl = hl && p.hn === hl && !p.pr;
-  const ext = s === 'fol' ? '<div class="ext"><span>แจ้งอีกใน</span>' + [5, 15, 30].map((m) => '<button data-ext="' + m + '" data-id="' + esc(p.id) + '" class="' + (l.ext === m && l.ext !== 10 ? 'sel' : '') + '">' + m + '</button>').join('') + '<span>นาที (ไม่เลือก = 10)</span></div>' : '';
-  const acts = p.pr ? '' : '<div class="acts"><button class="' + (s === 'due' ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล' + (p.fols.length ? ' (' + p.fols.length + ')' : '') + '</button><button class="' + (s === 'fol' ? 'primary' : '') + '" data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผลแล้ว</button></div>';
-  return '<div class="card ' + s + (isHl ? ' hl' : '') + '">' +
-    '<div class="row"><span class="q">คิว ' + p.queue + '</span>' + pill(p) + '</div>' +
-    '<div class="row"><span class="hn mono">HN ' + esc(p.hn) + '</span><span class="who">รอ ' + dur(p.wait) + '</span></div>' +
-    (isHl && hlMode ? '<div class="hint">กดปุ่ม “ตามผล” เมื่อคุณตามผลรายนี้แล้ว</div>' : '') +
-    '<dl><dt>ลงทะเบียน</dt><dd class="mono">' + fmt(p.reg) + ' · ' + esc(p.regBy) + '</dd>' +
-    '<dt>ครบกำหนด</dt><dd class="mono">' + fmt(dueAt(p)) + (p.alerts ? ' · แจ้งแล้ว ' + p.alerts + ' ครั้ง' : '') + '</dd>' +
-    p.fols.map((f) => '<dt>ตามผล ' + f.n + '</dt><dd class="mono">' + fmt(f.at) + ' · ' + esc(f.by) + '</dd>').join('') +
-    (p.pr ? '<dt>พิมพ์ผล</dt><dd class="mono">' + fmt(p.pr) + ' · ' + esc(p.prBy) + '</dd>' : '') + '</dl>' + acts + ext + '</div>';
 }
 function scanWait() { return scan.wait === 'custom' ? Math.max(5, +scan.custom || 0) : scan.wait; }
 function scanSheet() {
@@ -172,6 +212,7 @@ async function load(quiet) {
   try { setSnap(await call('apiList', auth())); }
   catch (e) { if (!quiet) toast(e.message); if (mode === 'app') { mode = null; appToken = null; } }
 }
+window.addEventListener('resize', () => { if (mode && !scan) render(); });
 function schedule() { clearInterval(timer); timer = setInterval(() => { if (mode && !scan && !busy) load(true).then(render); else if (mode && !scan) render(); }, 20000); }
 async function doCall(fn, ...args) {
   if (busy) return; busy = true;
@@ -223,9 +264,9 @@ document.addEventListener('click', async (e) => {
     if (await doCall('apiAdd', hn, w)) { scan = null; hl = ''; toast('เพิ่ม HN ' + hn + ' แล้ว แจ้งเตือน ' + fmt(nowMs() + w * 60000)); render(); }
     return;
   }
-  if (d.do === 'follow') { if (await doCall('apiFollow', d.id)) { hlMode = ''; hl = ''; toast('บันทึกตามผลแล้ว เลือกเวลาแจ้งอีกครั้งได้'); render(); } return; }
+  if (d.do === 'follow') { if (await doCall('apiFollow', d.id)) { hlMode = ''; hl = ''; toast('บันทึกตามผลแล้ว ระบบแจ้งอีกครั้งใน 10 นาที'); render(); } return; }
   if (d.do === 'print') { if (await doCall('apiPrint', d.id)) { toast('บันทึกพิมพ์ผลแล้ว ย้ายไปแท็บเสร็จสิ้น'); render(); } return; }
-  if (d.ext) { if (await doCall('apiExtend', d.id, +d.ext)) { toast('แจ้งอีก ' + d.ext + ' นาที'); render(); } return; }
+  if (d.hist) { openH[d.hist] = !openH[d.hist]; render(); return; }
 });
 init().then(() => { if (mode) { schedule(); if (CFG.mode === 'scan') { scan = { hn: '', wait: 45, custom: 30 }; render(); } } });
 </script>
