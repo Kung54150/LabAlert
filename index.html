@@ -269,9 +269,18 @@ async function lineQr() {
 async function startCamera() {
   if (!window.Html5Qrcode) { toast('เปิดกล้องไม่ได้ ใส่ HN ด้วยมือแทน'); return; }
   try {
-    const h = new Html5Qrcode('reader'); window._h = h;
-    await h.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 240, height: 140 } },
-      (txt) => { scan.hn = String(txt).trim(); h.stop().catch(() => {}); render(); }, () => {});
+    // ลดชนิดบาร์โค้ดที่ลองอ่านให้เหลือที่ใช้บ่อย ช่วยลดการอ่านเพี้ยน และใช้ตัวอ่านของเบราว์เซอร์ถ้ามี (Chrome บน Android)
+    const F = window.Html5QrcodeSupportedFormats || {};
+    const formats = ['QR_CODE', 'CODE_128', 'CODE_39', 'EAN_13', 'EAN_8', 'UPC_A', 'ITF'].map((k) => F[k]).filter((v) => v !== undefined);
+    const h = new Html5Qrcode('reader', { formatsToSupport: formats.length ? formats : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
+    window._h = h;
+    let last = '', n = 0;   // ต้องอ่านได้ค่าเดียวกัน 2 ครั้งติดกันจึงยอมรับ
+    await h.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 300, height: 120 } },
+      (txt) => {
+        txt = String(txt).trim();
+        if (txt === last) n++; else { last = txt; n = 1; }
+        if (n >= 2) { scan.hn = txt; h.stop().catch(() => {}); toast('อ่านได้ ' + txt + ' ตรวจให้ตรงกับสติกเกอร์'); render(); }
+      }, () => {});
   } catch (e) { toast('เปิดกล้องสดไม่ได้ (' + String((e && e.message) || e).slice(0, 60) + ') ลองกด “ถ่ายรูปบาร์โค้ด” แทน'); }
 }
 async function scanImage(file) {
