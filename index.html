@@ -94,8 +94,7 @@ button:disabled{opacity:.45;cursor:default}
 .chips button.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
 .step{display:flex;align-items:center;justify-content:center;gap:12px}.step b{font-size:1.1rem;min-width:70px;text-align:center}
 .step button{width:44px;font-size:1rem}
-#reader{width:100%;min-height:0}
-#reader:empty{display:none}
+#reader{width:100%}   /* ห้ามซ่อนกรอบตอนว่าง: ตัวอ่านบาร์โค้ดวัดความกว้างกรอบตอนเริ่ม ถ้า 0 ภาพกล้องจะกว้าง 0 */
 
 /* เข้าสู่ระบบ: ปุ่มกดทั้งหมด ไม่เปิดแป้นพิมพ์ */
 .login{max-width:330px;margin:3vh auto 0;display:flex;flex-direction:column;align-items:stretch;gap:10px;text-align:center}
