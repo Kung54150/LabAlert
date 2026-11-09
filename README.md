@@ -36,10 +36,20 @@
 - **PC (Chrome/Edge):** กดไอคอนติดตั้งที่ช่องที่อยู่ หรือเมนู → ติดตั้ง LabAlert
 - ไอคอนและชื่อมาจาก `manifest.webmanifest` และไฟล์ `icon-*.png` ตัวแอปโหลดหน้าล่าสุดจากเน็ตก่อนเสมอ (`sw.js`) ไม่เก็บข้อมูลผู้ป่วยในแคช ใช้งานโดยไม่มีเน็ตไม่ได้
 
-### 3. LINE (ภายหลัง)
-- สร้าง LINE Login channel แล้วสร้าง LIFF โดยตั้ง Endpoint URL เป็นลิงก์ GitHub Pages ข้างบน เปิด scope `profile`
-- ใส่ `LIFF_ID`, `LOGIN_CHANNEL_ID`, `LINE_TOKEN`, `GROUP_ID` ใน Script Properties แล้วรัน `testPush`, `postMenu`
-- ลิงก์ในข้อความ LINE แนบลิงก์ Apps Script มาด้วย หน้าเว็บจะถามยืนยันก่อนเชื่อมต่อครั้งแรก
+### 3. เชื่อมต่อ LINE กลุ่ม (บอท Messaging API ที่มีอยู่แล้ว)
+ไม่ต้องใช้ LIFF พนักงานเข้าสู่ระบบด้วยรหัสพนักงานอยู่แล้ว ปุ่มในข้อความ LINE เปิดหน้าแอปบน GitHub Pages ตรง ๆ
+1. LINE Developers Console → ช่องของบอท → แท็บ Messaging API → **Channel access token (long-lived)** กด Issue แล้วคัดลอก ใส่ Script Property `LINE_TOKEN` (ห้ามส่งในแชตหรือใส่ใน GitHub)
+2. เชิญบอทเข้ากลุ่ม LINE ของแผนก
+3. หา ID กลุ่ม (ไม่กระทบระบบเดิมที่ใช้ Webhook อยู่ ถ้าทำตามลำดับ):
+   - จด **Webhook URL เดิม** ของบอทไว้ก่อน
+   - ตั้ง Script Property `LINE_SETUP` = `1`
+   - ใส่ลิงก์ Web app (`/exec`) ของ LabAlert เป็น Webhook URL ชั่วคราว กด Verify แล้วพิมพ์ข้อความในกลุ่ม 1 ข้อความ
+   - เปิดชีต `Log` หาแถว `line_group_seen` คัดลอก `groupId=C...` ไปใส่ Script Property `GROUP_ID`
+   - **ใส่ Webhook URL เดิมกลับทันที** และลบ `LINE_SETUP`
+4. รัน `testPush` ควรมีข้อความทดสอบเข้ากลุ่ม แล้วรัน `postMenu` ส่งเมนูสแกน/ดูคิว (ปักหมุดในกลุ่มได้)
+5. ถ้าอยากให้ปุ่มเปิดในแอป LINE ให้สร้าง LIFF แล้วใส่ `LIFF_ID` (ไม่บังคับ) ถ้าหน้าแอปอยู่ที่ลิงก์อื่น ตั้ง `APP_URL`
+
+ข้อความแจ้งเตือน: 1 เคสต่อ 1 กล่อง ปุ่ม "ตามผล" เปิดหน้าแอปไปที่รายการนั้น ปุ่ม "เปิดรายการทั้งหมด" เปิดหน้าแอป แจ้งซ้ำทุก 10 นาทีจนกว่าจะพิมพ์ผล
 
 ## หมายเหตุ
 - หน้าเว็บบน GitHub Pages เป็นสาธารณะแต่ไม่มีข้อมูลผู้ป่วยและไม่ฝังลิงก์ Apps Script ข้อมูลอยู่ใน Google Sheet และทุกคำสั่งต้องผ่านรหัสแผนกหรือบัญชี LINE

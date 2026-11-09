@@ -6,7 +6,9 @@
  *   LINE_TOKEN        Channel access token ของบอท (Messaging API)
  *   GROUP_ID          ID กลุ่ม LINE ที่รับแจ้งเตือน
  *   ADMIN_CODES       (ไม่บังคับ) รหัสพนักงานที่เป็นแอดมิน คั่นด้วยจุลภาค ค่าเริ่มต้น 54150
- *   LIFF_ID           LIFF ID ของแอปนี้
+ *   APP_URL           (ไม่บังคับ) ลิงก์หน้าแอปที่ปุ่มใน LINE เปิด ค่าเริ่มต้น https://kung54150.github.io/LabAlert/
+ *   LINE_SETUP        (ชั่วคราว) ตั้งเป็น 1 ตอนหา ID กลุ่ม แล้วลบทิ้ง
+ *   LIFF_ID           (ไม่บังคับ) LIFF ID ถ้าอยากให้ปุ่มเปิดในแอป LINE
  *   LOGIN_CHANNEL_ID  Channel ID ของ LINE Login channel ที่ LIFF สังกัดอยู่
  *   SHEET_ID          (ไม่บังคับ) ถ้าไม่ได้ผูกสคริปต์กับชีต
  */
@@ -125,6 +127,7 @@ function doGet() { return json_({ ok: true, data: 'LabAlert API' }); }
 function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (Array.isArray(req.events)) return json_(lineSetupEvents_(req.events));   // เหตุการณ์จาก LINE Webhook (ใช้ตอนหา ID กลุ่ม)
     const table = { apiLogin: apiLogin, apiLogout: apiLogout, apiChangePin: apiChangePin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint };
     const fn = Object.prototype.hasOwnProperty.call(table, req.fn) ? table[req.fn] : null;
     if (!fn) throw new Error('ไม่รู้จักคำสั่ง');
@@ -134,6 +137,23 @@ function doPost(e) {
   }
 }
 function apiConfig() { return { liffId: prop_('LIFF_ID') }; }
+
+/**
+ * ใช้ตอนตั้งค่า LINE ครั้งแรกเท่านั้น: ตั้ง Script Property LINE_SETUP=1 แล้วชี้ Webhook ของบอทมาที่ลิงก์ Web app นี้ชั่วคราว
+ * พิมพ์ข้อความในกลุ่ม ระบบจะจด ID กลุ่มลงชีต Log (action = line_group_seen) ให้ผู้ดูแลคัดลอกไปใส่ GROUP_ID เอง
+ * ไม่ตั้งค่า GROUP_ID อัตโนมัติ เพราะ Apps Script อ่านลายเซ็นของ LINE ไม่ได้ จึงยืนยันไม่ได้ว่าคำขอมาจาก LINE จริง
+ */
+function lineSetupEvents_(events) {
+  if (prop_('LINE_SETUP') !== '1') return { ok: true };
+  events.slice(0, 20).forEach((ev) => {
+    const src = (ev && ev.source) || {};
+    const id = src.groupId || src.roomId;
+    if (!id) return;
+    const text = ev.message && ev.message.type === 'text' ? String(ev.message.text).slice(0, 40) : '(' + (ev.type || '?') + ')';
+    log_('line', 'line_group_seen', 'groupId=' + id + ' | ข้อความ: ' + text);
+  });
+  return { ok: true };
+}
 
 /* ---------- ยืนยันตัวตน ---------- */
 function apiLogin(code, pin) {
@@ -370,10 +390,31 @@ function push_(messages) {
   if (r.getResponseCode() !== 200) throw new Error('LINE ' + r.getResponseCode() + ' ' + r.getContentText());
 }
 
+/**
+ * ลิงก์ที่ปุ่มในข้อความ LINE เปิด: ถ้าตั้ง LIFF_ID ใช้ลิงก์ LIFF (เปิดในแอป LINE) ถ้าไม่ตั้ง เปิดหน้าแอปบน GitHub Pages ตรง ๆ
+ * (APP_URL ค่าเริ่มต้นคือหน้าแอปของ repo นี้) พนักงานเข้าสู่ระบบด้วยรหัสพนักงานอยู่แล้ว จึงไม่ต้องใช้ LIFF
+ */
 function liffUrl_(query) {
-  // ลิงก์ LIFF พาไปหน้าเว็บบน GitHub Pages (ตั้ง Endpoint URL ของ LIFF ไว้ที่หน้านั้น) พร้อมลิงก์ API ให้หน้าเว็บจำ
-  const q = (query ? query + '&' : '') + 'api=' + encodeURIComponent(ScriptApp.getService().getUrl());
-  return 'https://liff.line.me/' + prop_('LIFF_ID') + '?' + q;
+  const liff = prop_('LIFF_ID');
+  if (liff) return 'https://liff.line.me/' + liff + '?' + (query ? query + '&' : '') + 'api=' + encodeURIComponent(ScriptApp.getService().getUrl());
+  const base = (prop_('APP_URL') || 'https://kung54150.github.io/LabAlert/').trim();
+  return base + (query ? (base.indexOf('?') < 0 ? '?' : '&') + query : '');
+}
+
+function alertFlex_(i) {
+  const text = i.count === 0 ? 'ครบเวลาตามผล' : 'แจ้งซ้ำครั้งที่ ' + (i.count + 1) + ' · เลยกำหนด ' + i.over + ' นาที';
+  return {
+    type: 'flex', altText: 'HN ' + i.hn + ' ' + text,
+    contents: {
+      type: 'bubble',
+      header: { type: 'box', layout: 'vertical', contents: [{ type: 'text', text: 'LabAlert · ' + text, weight: 'bold', size: 'sm', color: i.count ? '#B3261E' : '#946000' }] },
+      body: { type: 'box', layout: 'vertical', contents: [{ type: 'text', text: 'HN ' + i.hn, weight: 'bold', size: 'xl' }] },
+      footer: { type: 'box', layout: 'vertical', contents: [
+        { type: 'button', style: 'primary', height: 'sm', action: { type: 'uri', label: 'ตามผล', uri: liffUrl_('mode=follow&hn=' + encodeURIComponent(i.hn)) } },
+        { type: 'button', style: 'secondary', height: 'sm', margin: 'sm', action: { type: 'uri', label: 'เปิดรายการทั้งหมด', uri: liffUrl_('') } },
+      ] },
+    },
+  };
 }
 
 /** ส่งข้อความเมนู (สแกน / ดูคิว) เข้ากลุ่ม แล้วให้ปักหมุดเป็นประกาศ: รันจาก editor ครั้งเดียว */
