@@ -88,7 +88,7 @@ let scan = null;            // { hn, wait, custom, open }
 let busy = false, timer = null;
 
 const call = (fn, ...args) => new Promise((ok, no) =>
-  google.script.run.withSuccessHandler(ok).withFailureHandler((e) => no(new Error((e && e.message) || e)))[fn](...args));
+  google.script.run.withSuccessHandler(ok).withFailureHandler((e) => no(new Error(String((e && e.message) || e).replace(/^Error:\s*/, ''))))[fn](...args));
 const nowMs = () => Date.now() + offset;
 function auth() {
   if (mode === 'line') return { type: 'line', accessToken: liff.getAccessToken() };
