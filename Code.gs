@@ -125,7 +125,7 @@ function doGet() { return json_({ ok: true, data: 'LabAlert API' }); }
 function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    const table = { apiLogin: apiLogin, apiChangePin: apiChangePin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint };
+    const table = { apiLogin: apiLogin, apiLogout: apiLogout, apiChangePin: apiChangePin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint };
     const fn = Object.prototype.hasOwnProperty.call(table, req.fn) ? table[req.fn] : null;
     if (!fn) throw new Error('ไม่รู้จักคำสั่ง');
     return json_({ ok: true, data: fn.apply(null, Array.isArray(req.args) ? req.args : []) });
@@ -181,8 +181,17 @@ function apiChangePin(auth, newPin) {
 function session_(auth) {
   if (!auth || auth.type !== 'app' || !auth.token) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
   const v = CacheService.getScriptCache().get('s_' + auth.token);
-  if (!v) throw new Error('หมดเวลา กรุณาเข้าสู่ระบบใหม่');
-  return JSON.parse(v);
+  let ses = null;
+  try { ses = v ? JSON.parse(v) : null; } catch (e) { ses = null; }
+  // session ต้องมีรหัสพนักงาน (ตัดทิ้ง session แบบเก่าจากรหัสแผนกรวมที่ยังค้างในแคช)
+  if (!ses || typeof ses !== 'object' || !ses.code) throw new Error('หมดเวลา กรุณาเข้าสู่ระบบใหม่');
+  return ses;
+}
+
+/** ออกจากระบบ: ลบ session ฝั่งเซิร์ฟเวอร์ */
+function apiLogout(auth) {
+  if (auth && auth.type === 'app' && auth.token) CacheService.getScriptCache().remove('s_' + auth.token);
+  return { ok: true };
 }
 
 function who_(auth) {

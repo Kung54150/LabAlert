@@ -59,6 +59,7 @@ button:disabled{opacity:.45;cursor:default}
 .l2 .red{color:var(--crit)}
 .chip{font-size:.66rem;font-weight:600;padding:0 6px;border-radius:99px;white-space:nowrap}
 .chip.due{background:var(--crit);color:#fff;animation:blink 1s steps(2,start) infinite}
+.chip.ack{background:var(--crit);color:#fff}
 .chip.wait{background:var(--warn-soft);color:var(--warn)}.chip.done{background:var(--ok-soft);color:var(--ok)}.chip.stale{background:var(--sunk);color:var(--muted)}
 @keyframes blink{50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.chip.due{animation:none;outline:2px solid var(--crit)}}
@@ -127,6 +128,9 @@ const qApi = qs.get('api') || '';
 let pendingApi = !HAS_EMBEDDED && API_RE.test(qApi) && qApi !== API ? qApi : '';   // ลิงก์จาก LINE: ให้ผู้ใช้ยืนยันก่อนเชื่อมต่อ
 const CFG = { liffId: '', mode: qs.get('mode') || '', hn: qs.get('hn') || '' };
 
+// session เก็บเฉพาะช่วงที่เปิดแอปอยู่ (ปิดแอปแล้วต้องใส่รหัสใหม่) ป้องกันคนอื่นใช้เครื่องต่อภายใต้รหัสของคนก่อนหน้า
+const sess = { get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} } };
+
 /* ---------- ฟังก์ชันช่วย ---------- */
 const $app = document.getElementById('app');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -175,7 +179,7 @@ const isWide = () => window.innerWidth >= 900;
 function toast(s) { const t = document.getElementById('toast'); t.textContent = s; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2600); }
 function setSnap(s) { snap = s; offset = s.now - Date.now(); if (s.me) me = s.me; }
 function localLogout(msg) {
-  mode = null; me = null; appToken = null; mustChange = false; store.set('tok', ''); clearInterval(timer);
+  mode = null; me = null; appToken = null; mustChange = false; sess.set('tok', ''); clearInterval(timer);
   lg = { code: store.get('lastCode') || '', pin: '', field: store.get('lastCode') ? 'pin' : 'code', err: msg || '', busy: false };
 }
 
@@ -196,9 +200,10 @@ function sim(p) {
 function cat(p) {
   if (p.pr || p.stale) return 'done';
   if (!p.fols.length) return nowMs() >= dueAt(p) ? 'due' : 'wait';
-  const lf = p.fols[p.fols.length - 1];
-  return p.lastAlert && p.lastAlert > lf.at ? 'due' : 'wait';
+  return p.alerts > 0 ? 'due' : 'wait';   // ระบบแจ้งเตือนครบเวลาไปแล้ว อยู่แท็บครบเวลาต่อแม้กดตามผล ตามผลก่อนถึงเวลาแจ้งอยู่แท็บรอผล
 }
+/** ตามผลแล้วหลังแจ้งเตือนล่าสุด รอรอบแจ้งเตือนถัดไป (ในแท็บครบเวลา: แดงนิ่ง ไม่กระพริบ) */
+const acked = (p) => { const lf = p.fols[p.fols.length - 1]; return !!lf && !(p.lastAlert && p.lastAlert > lf.at); };
 function cycleStart(p) { const lf = p.fols[p.fols.length - 1]; const a = sim(p).filter((t) => !lf || t > lf.at); return a.length ? a[0] : null; }
 function respOf(p, k) { const f = p.fols[k], prev = k ? p.fols[k - 1].at : -1; const a = sim(p).filter((t) => t > prev && t <= f.at); return a.length ? f.at - a[0] : null; }
 function events(p, admin) {
@@ -215,7 +220,7 @@ function events(p, admin) {
 function chip(p) {
   const s = cat(p);
   if (s === 'done') return p.pr ? '<span class="chip done">พิมพ์แล้ว</span>' : '<span class="chip stale">ไม่ได้พิมพ์ผล</span>';
-  if (s === 'due') return '<span class="chip due">ครบเวลา</span>';
+  if (s === 'due') return acked(p) ? '<span class="chip ack">รออีก ' + Math.max(0, Math.ceil((p.next - nowMs()) / 60000)) + 'น.</span>' : '<span class="chip due">ครบเวลา</span>';
   return '<span class="chip wait">รออีก ' + Math.max(0, Math.ceil(((p.fols.length ? p.next : dueAt(p)) - nowMs()) / 60000)) + 'น.</span>';
 }
 function histHTML(p, admin) {
@@ -229,8 +234,8 @@ function rowM(p, admin) {   // มือถือ: 2 บรรทัดต่อ
   const parts = ['ลง ' + fmt(p.reg), 'ครบ ' + fmt(dueAt(p))];
   if (p.fols.length) parts.push('ตาม ' + p.fols.length + '× ' + fmt(lf.at));
   if (p.pr) parts.push('พิมพ์ ' + fmt(p.pr));
-  const extra = admin && s === 'due' && cs != null ? ' · <b class="red">รอตอบรับ ' + mins(nowMs() - cs) + 'น.</b>' : '';
-  const btns = s === 'done' ? '' : '<span class="btns"><button class="' + (s === 'due' ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></span>';
+  const extra = admin && s === 'due' && !acked(p) && cs != null ? ' · <b class="red">รอตอบรับ ' + mins(nowMs() - cs) + 'น.</b>' : '';
+  const btns = s === 'done' ? '' : '<span class="btns"><button class="' + (s === 'due' && !acked(p) ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></span>';
   return '<div class="r ' + s + (isHlRow(p) ? ' hl' : '') + '"><div class="l1"><span class="q">' + p.queue + '</span><span class="hn mono">' + esc(normHN(p.hn)) + '</span>' + chip(p) + btns + '</div>' +
     '<div class="l2" data-hist="' + esc(p.id) + '">' + parts.join(' · ') + extra + ' ' + (open ? '▴' : '▾') + '</div>' + (open ? histHTML(p, admin) : '') + '</div>';
 }
@@ -238,10 +243,10 @@ function tableW(list, admin) {   // PC: 1 คนต่อ 1 บรรทัด
   const cols = 9 + (admin ? 1 : 0);
   const body = list.map((p) => {
     const s = cat(p), cs = cycleStart(p), lf = p.fols[p.fols.length - 1], open = openH[p.id];
-    const acts = s === 'done' ? '' : '<div class="acts"><button class="' + (s === 'due' ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></div>';
+    const acts = s === 'done' ? '' : '<div class="acts"><button class="' + (s === 'due' && !acked(p) ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></div>';
     return '<tr class="' + s + (isHlRow(p) ? ' hl' : '') + '"><td class="mono">' + p.queue + '</td><td class="mono"><b>' + esc(normHN(p.hn)) + '</b></td>' +
       '<td class="mono">' + fmt(p.reg) + ' <span class="muted">' + esc(clean(p.regBy)) + '</span></td><td class="mono">' + fmt(dueAt(p)) + ' <span class="muted">(รอ ' + dur(p.wait) + ')</span></td><td>' + chip(p) + '</td>' +
-      (admin ? '<td class="mono">' + (s === 'due' && cs != null ? '<b style="color:var(--crit)">' + mins(nowMs() - cs) + ' นาที</b>' : '–') + '</td>' : '') +
+      (admin ? '<td class="mono">' + (s === 'due' && !acked(p) && cs != null ? '<b style="color:var(--crit)">' + mins(nowMs() - cs) + ' นาที</b>' : '–') + '</td>' : '') +
       '<td class="mono">' + (lf ? p.fols.length + '× ล่าสุด ' + fmt(lf.at) + ' <span class="muted">' + esc(clean(lf.by)) + '</span>' : '–') + '</td>' +
       '<td class="mono">' + (p.pr ? fmt(p.pr) + ' <span class="muted">' + esc(clean(p.prBy)) + '</span>' : '–') + '</td><td>' + acts + '</td>' +
       '<td><button class="tg" data-hist="' + esc(p.id) + '">' + (open ? 'ซ่อน ▴' : 'ประวัติ ▾') + '</button></td></tr>' +
@@ -305,7 +310,7 @@ async function doLogin() {
   try {
     const r = await call('apiLogin', lg.code, lg.pin);
     appToken = r.token; me = r.me; mode = 'app'; mustChange = !!r.must;
-    store.set('tok', appToken); store.set('lastCode', lg.code); lg.pin = '';
+    sess.set('tok', appToken); store.set('lastCode', lg.code); lg.pin = '';
     if (mustChange) { cp = { a: '', b: '', field: 'a', err: '', busy: false }; lg.busy = false; render(); return; }
     await afterLogin();
   } catch (e) { lg.err = e.message; lg.pin = ''; lg.field = 'pin'; mode = null; }
@@ -349,7 +354,7 @@ function render() {
   const admin = isAdmin(), wide = isWide();
   const g = { due: [], wait: [], done: [] };
   snap.patients.forEach((p) => g[cat(p)].push(p));
-  g.due.sort((a, b) => (cycleStart(a) || 0) - (cycleStart(b) || 0));                                          // รอนานสุดอยู่บน
+  g.due.sort((a, b) => (acked(a) - acked(b)) || ((cycleStart(a) || 0) - (cycleStart(b) || 0)) || ((a.next || 0) - (b.next || 0)));   // ยังไม่ตามผล (กระพริบ) อยู่บน รอนานสุดก่อน
   g.wait.sort((a, b) => (a.fols.length ? a.next : dueAt(a)) - (b.fols.length ? b.next : dueAt(b)));            // ผลควรออกก่อนอยู่บน
   if (!doneDay) doneDay = snap.today;
   g.done = g.done.filter((p) => bkkDay(p.pr || p.reg) === doneDay).sort((a, b) => (b.pr || b.reg) - (a.pr || a.reg));
@@ -446,8 +451,8 @@ async function init() {
   if (CFG.liffId && window.liff) {
     try { await liff.init({ liffId: CFG.liffId }); if (liff.isLoggedIn()) mode = 'line'; } catch (e) { /* ใช้รหัสพนักงานแทน */ }
   }
-  if (!mode && store.get('tok')) {   // กลับมาเปิดแอปอีกครั้ง: ใช้ session เดิมโดยไม่ต้องใส่รหัสซ้ำ
-    appToken = store.get('tok'); mode = 'app';
+  if (!mode && sess.get('tok')) {   // กลับมาเปิดแอปอีกครั้ง: ใช้ session เดิมโดยไม่ต้องใส่รหัสซ้ำ
+    appToken = sess.get('tok'); mode = 'app';
     try { setSnap(await call('apiList', auth())); }
     catch (e) { if (/ตั้งรหัสผ่านใหม่/.test(e.message)) mustChange = true; else localLogout(''); }
   } else if (mode === 'line') await load(true);
@@ -472,14 +477,14 @@ document.addEventListener('click', async (e) => {
     }
     if (d.api === 'confirm') { API = pendingApi; store.set('api', API); pendingApi = ''; await boot(); return; }
     if (d.api === 'cancel') { pendingApi = ''; if (API) await boot(); else render(); return; }
-    if (d.api === 'reset') { store.set('api', ''); store.set('tok', ''); API = ''; mode = null; appToken = null; render(); return; }
+    if (d.api === 'reset') { store.set('api', ''); sess.set('tok', ''); API = ''; mode = null; appToken = null; render(); return; }
   }
   if (b.id === 'lineLogin') { try { liff.login(); } catch (x) { toast('เปิดผ่านแอป LINE เพื่อเข้าสู่ระบบ'); } return; }
   if (d.k != null) { padInput(d.k); return; }
   if (d.field) { if (mode === 'app' && mustChange) cp.field = d.field; else lg.field = d.field; render(); return; }
   if (d.act === 'login') { await doLogin(); return; }
   if (d.act === 'savepin') { await doSavePin(); return; }
-  if (d.act === 'logout') { localLogout(''); render(); return; }
+  if (d.act === 'logout') { if (mode === 'app') call('apiLogout', auth()).catch(() => {}); localLogout(''); render(); return; }
   if (d.tab) { tab = d.tab; if (tab === 'done') { doneDay = snap.today; await load(true); } render(); return; }   // เปิดแท็บเสร็จสิ้นให้ขึ้นวันที่ปัจจุบันเสมอ
   if (d.day) {
     doneDay = d.day === 'today' ? snap.today : shiftDay(doneDay, +d.day);
