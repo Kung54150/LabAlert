@@ -7,6 +7,7 @@
  *   DEPT_PIN          รหัสแผนก (ตัวเลข) สำหรับเข้าใช้ผ่านแอป/เว็บ
  *   LIFF_ID           LIFF ID ของแอปนี้
  *   LOGIN_CHANNEL_ID  Channel ID ของ LINE Login channel ที่ LIFF สังกัดอยู่
+ *   SCANNER_URL       (ไม่บังคับ) ลิงก์หน้าสแกนบน GitHub Pages เช่น https://kung54150.github.io/LabAlert/scan.html
  *   SHEET_ID          (ไม่บังคับ) ถ้าไม่ได้ผูกสคริปต์กับชีต
  */
 const REPEAT_MIN = 10;          // แจ้งซ้ำเมื่อไม่มีใครตอบ
@@ -89,7 +90,8 @@ function setup() {
 /* ---------- Web App ---------- */
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  const cfg = JSON.stringify({ liffId: prop_('LIFF_ID'), mode: String(p.mode || ''), hn: String(p.hn || '') })
+  const cfg = JSON.stringify({ liffId: prop_('LIFF_ID'), mode: String(p.mode || ''), hn: String(p.hn || ''),
+    scannerUrl: prop_('SCANNER_URL'), appUrl: ScriptApp.getService().getUrl() })
     .replace(/</g, '\\u003c');
   const t = HtmlService.createTemplateFromFile('Index');
   t.cfg = cfg;

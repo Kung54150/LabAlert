@@ -57,6 +57,7 @@ h1{font-size:1.3rem;margin:0}
 .sheet{background:var(--surface);width:min(460px,100%);border-radius:16px 16px 0 0;padding:16px max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:10px;max-height:92%;overflow:auto}
 @media(min-width:600px){.sheet-bg{align-items:center}.sheet{border-radius:16px}}
 .sheet input{font:inherit;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+.btnlink{display:block;text-align:center;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:10px;font-weight:600;text-decoration:none}
 .chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{flex:1 1 auto;border-radius:99px;font-size:.85rem;padding:6px 8px;white-space:nowrap}
 .chips button.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
 #reader{width:100%;min-height:0}
@@ -164,7 +165,10 @@ async function init() {
       if (liff.isLoggedIn()) { mode = 'line'; }
     } catch (e) { /* ใช้รหัสแผนกแทน */ }
   }
-  if (mode) await load(true);
+  if (!mode && store.get('tok')) { // กลับมาจากหน้าสแกน: ใช้ session เดิมโดยไม่ต้องใส่รหัสซ้ำ
+    appToken = store.get('tok'); mode = 'app';
+    try { setSnap(await call('apiList', auth())); } catch (e) { mode = null; appToken = null; store.set('tok', ''); }
+  } else if (mode) await load(true);
   if (hl) { const p = snap.patients.filter((x) => x.hn === hl && !x.pr)[0]; if (p) tab = stateOf(p); }
   render();
 }
@@ -200,7 +204,7 @@ function scanSheet() {
   const chips = [[45, '45 นาที'], [60, '1 ชม.'], [90, '1.5 ชม.'], [120, '2 ชม.']].map(([m, l]) => '<button data-wait="' + m + '" class="' + (scan.wait === m ? 'sel' : '') + '">' + l + '</button>').join('') +
     '<button data-wait="custom" class="' + (scan.wait === 'custom' ? 'sel' : '') + '">กำหนดเอง</button>';
   return '<div class="sheet-bg"><div class="sheet"><div class="row"><b>เพิ่มผู้ป่วยเข้าคิว</b><button data-act="closescan">ปิด</button></div>' +
-    '<div id="reader"></div><div class="row"><button data-act="camera">เปิดกล้องสแกน</button><button data-act="photo">ถ่ายรูปบาร์โค้ด</button></div><input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
+    (CFG.scannerUrl && CFG.appUrl ? '<a class="btnlink" href="' + esc(CFG.scannerUrl + '?app=' + encodeURIComponent(CFG.appUrl)) + '" target="_top">สแกนด้วยกล้อง (เปิดหน้าสแกน)</a>' : '') + '<div id="reader"></div><div class="row"><button data-act="camera">เปิดกล้องสแกน</button><button data-act="photo">ถ่ายรูปบาร์โค้ด</button></div><input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
     '<label for="scanHn">HN</label><input id="scanHn" class="mono" inputmode="text" autocomplete="off" value="' + esc(scan.hn) + '">' +
     '<div class="chips" role="group" aria-label="เวลาที่ให้แจ้งเตือน">' + chips + '</div>' +
     (scan.wait === 'custom' ? '<label for="scanCustom">กำหนดเอง (นาที)</label><input id="scanCustom" type="number" min="5" step="5" value="' + esc(scan.custom) + '">' : '') +
@@ -264,7 +268,7 @@ document.addEventListener('click', async (e) => {
       if (pin.length < 4) { pinErr = 'ใส่รหัสอย่างน้อย 4 หลัก'; }
       else {
         const p = pin; pin = '';
-        try { appToken = (await call('apiLogin', p)).token; mode = 'app'; setSnap(await call('apiList', auth())); schedule(); if (CFG.mode === 'scan') scan = { hn: '', wait: 45, custom: 30 }; } catch (x) { mode = null; appToken = null; pinErr = x.message; }
+        try { appToken = (await call('apiLogin', p)).token; store.set('tok', appToken); mode = 'app'; setSnap(await call('apiList', auth())); schedule(); if (CFG.mode === 'scan') scan = { hn: CFG.hn || '', wait: 45, custom: 30 }; } catch (x) { mode = null; appToken = null; pinErr = x.message; }
       }
     } else if (pin.length < 8) pin += d.pin;
     render(); return;
@@ -285,7 +289,7 @@ document.addEventListener('click', async (e) => {
   if (d.do === 'print') { if (await doCall('apiPrint', d.id)) { toast('บันทึกพิมพ์ผลแล้ว ย้ายไปแท็บเสร็จสิ้น'); render(); } return; }
   if (d.hist) { openH[d.hist] = !openH[d.hist]; render(); return; }
 });
-init().then(() => { if (mode) { schedule(); if (CFG.mode === 'scan') { scan = { hn: '', wait: 45, custom: 30 }; render(); } } });
+init().then(() => { if (mode) { schedule(); if (CFG.mode === 'scan') { scan = { hn: CFG.hn || '', wait: 45, custom: 30 }; render(); } } });
 </script>
 </body>
 </html>
