@@ -191,21 +191,20 @@ function sim(p) {
   const al = [], F = p.fols; let nx = dueAt(p), i = 0;
   for (let g = 0; g < 500; g++) {
     while (i < F.length && F[i].at <= nx) { nx = F[i].at + REP; i++; }
-    if (p.pr && nx >= p.pr) break;
-    if (nx > nowMs()) break;
+    if (p.pr && nx >= p.pr) return { al: al, next: null };
+    if (nx > nowMs()) return { al: al, next: nx };       // next = เวลาแจ้งเตือนครั้งถัดไป
     al.push(nx); nx += REP;
   }
-  return al;
+  return { al: al, next: null };
 }
 function cat(p) {
   if (p.pr || p.stale) return 'done';
-  if (!p.fols.length) return nowMs() >= dueAt(p) ? 'due' : 'wait';
-  return p.alerts > 0 ? 'due' : 'wait';   // ระบบแจ้งเตือนครบเวลาไปแล้ว อยู่แท็บครบเวลาต่อแม้กดตามผล ตามผลก่อนถึงเวลาแจ้งอยู่แท็บรอผล
+  return sim(p).al.length ? 'due' : 'wait';   // ถึงเวลาแจ้งแล้ว (ตามตารางเวลา) อยู่แท็บครบเวลาต่อแม้กดตามผล ตามผลก่อนถึงเวลาแจ้งอยู่แท็บรอผล
 }
-/** ตามผลแล้วหลังแจ้งเตือนล่าสุด รอรอบแจ้งเตือนถัดไป (ในแท็บครบเวลา: แดงนิ่ง ไม่กระพริบ) */
-const acked = (p) => { const lf = p.fols[p.fols.length - 1]; return !!lf && !(p.lastAlert && p.lastAlert > lf.at); };
-function cycleStart(p) { const lf = p.fols[p.fols.length - 1]; const a = sim(p).filter((t) => !lf || t > lf.at); return a.length ? a[0] : null; }
-function respOf(p, k) { const f = p.fols[k], prev = k ? p.fols[k - 1].at : -1; const a = sim(p).filter((t) => t > prev && t <= f.at); return a.length ? f.at - a[0] : null; }
+/** ตามผลแล้วหลังรอบแจ้งเตือนล่าสุด รอรอบถัดไป (ในแท็บครบเวลา: แดงนิ่ง) */
+const acked = (p) => { const lf = p.fols[p.fols.length - 1]; if (!lf) return false; const al = sim(p).al; return !al.length || lf.at >= al[al.length - 1]; };
+function cycleStart(p) { const lf = p.fols[p.fols.length - 1]; const a = sim(p).al.filter((t) => !lf || t > lf.at); return a.length ? a[0] : null; }
+function respOf(p, k) { const f = p.fols[k], prev = k ? p.fols[k - 1].at : -1; const a = sim(p).al.filter((t) => t > prev && t <= f.at); return a.length ? f.at - a[0] : null; }
 function events(p, admin) {
   const ev = [{ t: p.reg, o: 0, txt: 'ลงทะเบียน (รอ ' + dur(p.wait) + ') · ' + clean(p.regBy) }];
   p.fols.forEach((f, k) => {
@@ -214,14 +213,14 @@ function events(p, admin) {
     ev.push({ t: f.at, o: 1, txt: x });
   });
   if (p.pr) ev.push({ t: p.pr, o: 2, txt: 'พิมพ์ผล · ' + clean(p.prBy) });
-  if (admin) sim(p).forEach((t, k) => ev.push({ t: t, o: 1, sys: 1, txt: 'ระบบแจ้งเตือน LINE (' + (k + 1) + ')' }));
+  if (admin) sim(p).al.forEach((t, k) => ev.push({ t: t, o: 1, sys: 1, txt: 'ระบบแจ้งเตือน LINE (' + (k + 1) + ')' }));
   return ev.sort((a, b) => a.t - b.t || a.o - b.o);
 }
 function chip(p) {
   const s = cat(p);
   if (s === 'done') return p.pr ? '<span class="chip done">พิมพ์แล้ว</span>' : '<span class="chip stale">ไม่ได้พิมพ์ผล</span>';
-  if (s === 'due') return acked(p) ? '<span class="chip ack">รออีก ' + Math.max(0, Math.ceil((p.next - nowMs()) / 60000)) + 'น.</span>' : '<span class="chip due">ครบเวลา</span>';
-  return '<span class="chip wait">รออีก ' + Math.max(0, Math.ceil(((p.fols.length ? p.next : dueAt(p)) - nowMs()) / 60000)) + 'น.</span>';
+  if (s === 'due') return acked(p) ? '<span class="chip ack">รออีก ' + Math.max(0, Math.ceil((sim(p).next - nowMs()) / 60000)) + 'น.</span>' : '<span class="chip due">ครบเวลา</span>';
+  return '<span class="chip wait">รออีก ' + Math.max(0, Math.ceil((sim(p).next - nowMs()) / 60000)) + 'น.</span>';
 }
 function histHTML(p, admin) {
   return '<div class="hist">' + events(p, admin).slice().reverse().map((e) => '<span class="mono ' + (e.sys ? 'sys' : '') + '">' + fmt(e.t) + '</span><span class="' + (e.sys ? 'sys' : '') + '">' + esc(e.txt) + '</span>').join('') + '</div>';
@@ -354,8 +353,8 @@ function render() {
   const admin = isAdmin(), wide = isWide();
   const g = { due: [], wait: [], done: [] };
   snap.patients.forEach((p) => g[cat(p)].push(p));
-  g.due.sort((a, b) => (acked(a) - acked(b)) || ((cycleStart(a) || 0) - (cycleStart(b) || 0)) || ((a.next || 0) - (b.next || 0)));   // ยังไม่ตามผล (กระพริบ) อยู่บน รอนานสุดก่อน
-  g.wait.sort((a, b) => (a.fols.length ? a.next : dueAt(a)) - (b.fols.length ? b.next : dueAt(b)));            // ผลควรออกก่อนอยู่บน
+  g.due.sort((a, b) => (acked(a) - acked(b)) || ((cycleStart(a) || 0) - (cycleStart(b) || 0)) || ((sim(a).next || 0) - (sim(b).next || 0)));   // ยังไม่ตามผล (กระพริบ) อยู่บน รอนานสุดก่อน
+  g.wait.sort((a, b) => sim(a).next - sim(b).next);            // ผลควรออกก่อนอยู่บน
   if (!doneDay) doneDay = snap.today;
   g.done = g.done.filter((p) => bkkDay(p.pr || p.reg) === doneDay).sort((a, b) => (b.pr || b.reg) - (a.pr || a.reg));
   if (!tab) tab = g.due.length ? 'due' : 'wait';
