@@ -33,7 +33,7 @@ h1{font-size:1.3rem;margin:0}
 .stab[aria-selected="true"].due{border-bottom-color:var(--crit);background:var(--crit-soft)}
 .stab[aria-selected="true"].wait{border-bottom-color:#E2A412;background:var(--warn-soft)}
 .stab[aria-selected="true"].done{border-bottom-color:var(--ok);background:var(--ok-soft)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:10px}
+.grid{display:flex;flex-direction:column;gap:10px;max-width:720px}
 .card{background:var(--surface);border:1px solid var(--line);border-left:8px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .card.due{border-left-color:var(--crit)}.card.wait{border-left-color:#E2A412}.card.done{border-left-color:var(--ok)}
 .card.hl{outline:3px solid var(--accent)}
@@ -118,6 +118,7 @@ function stateOf(p) {
 }
 function cycleStart(p) { const lf = p.fols[p.fols.length - 1]; const a = sim(p).filter((t) => !lf || t > lf.at); return a.length ? a[0] : null; }
 function respOf(p, k) { const f = p.fols[k], prev = k ? p.fols[k - 1].at : -1; const a = sim(p).filter((t) => t > prev && t <= f.at); return a.length ? f.at - a[0] : null; }
+const clean = (s) => String(s || '').replace(/(\s*\((แอป|LINE)\))+\s*$/, (m) => (/แอป/.test(m) ? ' (แอป)' : ''));
 const mins = (ms) => Math.max(0, Math.round(ms / 60000));
 const isAdmin = () => window.innerWidth >= 900;
 function pill(p) {
@@ -128,13 +129,13 @@ function pill(p) {
   return '<span class="pill wait">รออีก ' + Math.max(0, Math.ceil((next - nowMs()) / 60000)) + ' นาที</span>';
 }
 function events(p, admin) {
-  const ev = [{ t: p.reg, o: 0, txt: 'ลงทะเบียน (รอ ' + dur(p.wait) + ') · ' + p.regBy }];
+  const ev = [{ t: p.reg, o: 0, txt: 'ลงทะเบียน (รอ ' + dur(p.wait) + ') · ' + clean(p.regBy) }];
   p.fols.forEach((f, k) => {
-    let x = 'ตามผลครั้งที่ ' + (k + 1) + ' · ' + f.by + ' (' + f.via + ')';
+    let x = 'ตามผลครั้งที่ ' + (k + 1) + ' · ' + clean(f.by);
     if (admin) { const r = respOf(p, k); x += r == null ? ' · ตามก่อนถึงเวลาแจ้ง' : ' · รอตอบรับ ' + mins(r) + ' นาที'; }
     ev.push({ t: f.at, o: 1, txt: x });
   });
-  if (p.pr) ev.push({ t: p.pr, o: 2, txt: 'พิมพ์ผล · ' + p.prBy });
+  if (p.pr) ev.push({ t: p.pr, o: 2, txt: 'พิมพ์ผล · ' + clean(p.prBy) });
   if (admin) sim(p).forEach((t, k) => ev.push({ t: t, o: 1, sys: 1, txt: 'ระบบแจ้งเตือน LINE (' + (k + 1) + ')' }));
   return ev.sort((a, b) => a.t - b.t || a.o - b.o);
 }
@@ -199,7 +200,7 @@ function scanSheet() {
   const chips = [[45, '45 นาที'], [60, '1 ชม.'], [90, '1.5 ชม.'], [120, '2 ชม.']].map(([m, l]) => '<button data-wait="' + m + '" class="' + (scan.wait === m ? 'sel' : '') + '">' + l + '</button>').join('') +
     '<button data-wait="custom" class="' + (scan.wait === 'custom' ? 'sel' : '') + '">กำหนดเอง</button>';
   return '<div class="sheet-bg"><div class="sheet"><div class="row"><b>เพิ่มผู้ป่วยเข้าคิว</b><button data-act="closescan">ปิด</button></div>' +
-    '<div id="reader"></div><button data-act="camera">เปิดกล้องสแกน</button>' +
+    '<div id="reader"></div><div class="row"><button data-act="camera">เปิดกล้องสแกน</button><button data-act="photo">ถ่ายรูปบาร์โค้ด</button></div><input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
     '<label for="scanHn">HN</label><input id="scanHn" class="mono" inputmode="text" autocomplete="off" value="' + esc(scan.hn) + '">' +
     '<div class="chips" role="group" aria-label="เวลาที่ให้แจ้งเตือน">' + chips + '</div>' +
     (scan.wait === 'custom' ? '<label for="scanCustom">กำหนดเอง (นาที)</label><input id="scanCustom" type="number" min="5" step="5" value="' + esc(scan.custom) + '">' : '') +
@@ -231,7 +232,17 @@ async function startCamera() {
     const h = new Html5Qrcode('reader'); window._h = h;
     await h.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 240, height: 140 } },
       (txt) => { scan.hn = String(txt).trim(); h.stop().catch(() => {}); render(); }, () => {});
-  } catch (e) { toast('เปิดกล้องไม่ได้ ใส่ HN ด้วยมือแทน'); }
+  } catch (e) { toast('เปิดกล้องสดไม่ได้ (' + String((e && e.message) || e).slice(0, 60) + ') ลองกด “ถ่ายรูปบาร์โค้ด” แทน'); }
+}
+async function scanImage(file) {
+  if (!file) return;
+  if (!window.Html5Qrcode) { toast('ไม่มีตัวอ่านบาร์โค้ด พิมพ์ HN ด้วยมือแทน'); return; }
+  try {
+    const h = new Html5Qrcode('reader');
+    const r = await h.scanFile(file, false);
+    scan.hn = String(r).trim(); toast('อ่านได้: ' + scan.hn);
+  } catch (e) { toast('อ่านบาร์โค้ดจากรูปไม่ได้ ถ่ายให้ใกล้ ชัด และตรงขึ้น หรือพิมพ์ HN'); }
+  render();
 }
 
 /* ---------- เหตุการณ์ ---------- */
@@ -241,6 +252,7 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'scanCustom') { scan.custom = e.target.value; document.getElementById('scanDue').innerHTML = 'แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')'; }
   if (e.target.id === 'nick') store.set('nick', e.target.value);
 });
+document.addEventListener('change', (e) => { if (e.target.id === 'scanFile') scanImage(e.target.files[0]); });
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
@@ -262,6 +274,7 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'scan') { scan = { hn: '', wait: 45, custom: 30 }; render(); return; }
   if (d.act === 'closescan') { try { if (window._h) await window._h.stop(); } catch (x) {} scan = null; render(); return; }
   if (d.act === 'camera') { await startCamera(); return; }
+  if (d.act === 'photo') { document.getElementById('scanFile').click(); return; }
   if (d.act === 'savescan') {
     const hn = scan.hn.trim(), w = scanWait();
     if (!/^[0-9A-Za-z\-\/]{3,20}$/.test(hn)) { toast('รูปแบบ HN ไม่ถูกต้อง'); return; }
