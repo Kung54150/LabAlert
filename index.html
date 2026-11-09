@@ -70,16 +70,19 @@ h1{font-size:1.3rem;margin:0}
 <body>
 <div class="wrap" id="app"></div>
 <div class="toast" id="toast" hidden></div>
+<script src="config.js"></script>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
 const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
-let API = store.get('api') || '';
+const EMBEDDED = String((window.LABALERT_CONFIG || {}).apiUrl || '').trim();   // ลิงก์ที่ฝังไว้ใน config.js
+const HAS_EMBEDDED = API_RE.test(EMBEDDED);
+let API = HAS_EMBEDDED ? EMBEDDED : (store.get('api') || '');
 if (!API_RE.test(API)) API = '';
 const qApi = qs.get('api') || '';
-let pendingApi = API_RE.test(qApi) && qApi !== API ? qApi : '';   // ลิงก์จาก LINE: ให้ผู้ใช้ยืนยันก่อนเชื่อมต่อ
+let pendingApi = !HAS_EMBEDDED && API_RE.test(qApi) && qApi !== API ? qApi : '';   // ลิงก์จาก LINE: ให้ผู้ใช้ยืนยันก่อนเชื่อมต่อ
 const CFG = { liffId: '', mode: qs.get('mode') || '', hn: qs.get('hn') || '' };
 const $app = document.getElementById('app');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -212,7 +215,7 @@ function render() {
   if (!mode) {
     loginUI();
     const l = $app.querySelector('.login');
-    if (l) l.insertAdjacentHTML('beforeend', '<button class="ghost" data-api="reset" style="font-size:.78rem">เปลี่ยนการเชื่อมต่อระบบ</button>');
+    if (l && !HAS_EMBEDDED) l.insertAdjacentHTML('beforeend', '<button class="ghost" data-api="reset" style="font-size:.78rem">เปลี่ยนการเชื่อมต่อระบบ</button>');
     return;
   }
   const admin = isAdmin();
