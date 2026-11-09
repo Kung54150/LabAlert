@@ -43,6 +43,8 @@ button:disabled{opacity:.45;cursor:default}
 .tab[aria-selected="true"]{font-weight:700}
 .tab[aria-selected="true"].due{border-bottom-color:var(--crit)}.tab[aria-selected="true"].wait{border-bottom-color:#E2A412}.tab[aria-selected="true"].done{border-bottom-color:var(--ok)}
 .exp{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.8rem;padding:6px 0}
+.exq{display:inline-flex;gap:4px}
+.exq button{padding:1px 8px;font-size:.75rem}
 .exp input{font:inherit;padding:2px 6px}
 .daybar{display:flex;align-items:center;gap:8px;font-size:.8rem}
 .daybar button{padding:1px 10px}
@@ -294,7 +296,7 @@ const isoDay = (d) => d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6);
 function expPanel(admin) {
   if (!admin || !expo) return '';
   return '<div class="exp"><span>ส่งออก CSV</span><input type="date" id="expFrom" value="' + isoDay(expo.from) + '"><span>ถึง</span><input type="date" id="expTo" value="' + isoDay(expo.to) + '">' +
-    '<button class="primary" data-act="expgo">ดาวน์โหลด</button><button class="ghost" data-act="expx">ปิด</button></div>';
+    '<span class="exq"><button data-q="0">วันนี้</button><button data-q="6">7 วัน</button><button data-q="29">30 วัน</button><button data-q="m">เดือนนี้</button></span><button class="primary" data-act="expgo">ดาวน์โหลด</button><button class="ghost" data-act="expx">ปิด</button></div>';
 }
 function saveCsv(name, text) {
   const blob = new Blob(['\ufeff' + text], { type: 'text/csv;charset=utf-8' });   // BOM ให้ Excel อ่านภาษาไทยถูก
@@ -592,6 +594,11 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'login') { await doLogin(); return; }
   if (d.act === 'savepin') { await doSavePin(); return; }
   if (d.act === 'export') { expo = expo ? null : { from: doneDay || snap.today, to: doneDay || snap.today }; render(); return; }
+  if (d.q != null && expo) {
+    const t = snap.today; expo.to = t;
+    expo.from = d.q === 'm' ? t.slice(0, 6) + '01' : shiftDay(t, -(+d.q));
+    render(); return;
+  }
   if (d.act === 'expx') { expo = null; render(); return; }
   if (d.act === 'expgo') {
     const f = (document.getElementById('expFrom').value || '').replace(/-/g, ''), t = (document.getElementById('expTo').value || '').replace(/-/g, '');
