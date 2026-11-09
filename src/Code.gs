@@ -222,7 +222,10 @@ function checkAlerts() {
     }));
     // 1 เคสต่อ 1 กล่องข้อความ (LINE ส่งได้สูงสุด 5 กล่องต่อคำขอ) ส่งสำเร็จเฉพาะชุดไหนจึงอัปเดตเฉพาะชุดนั้น
     const sent = [];
-    for (let i = 0; i < items.length; i += 5) {
+    const lineOn = !!(prop_('LINE_TOKEN') && prop_('GROUP_ID'));
+    // ถ้ายังไม่ได้ตั้งค่า LINE ให้นับรอบเตือนต่อไปตามปกติ (แท็บและเวลาในแอปยังทำงาน) โดยไม่ส่งข้อความ
+    if (!lineOn) items.forEach((_, j) => sent.push(j));
+    for (let i = 0; lineOn && i < items.length; i += 5) {
       try {
         push_(items.slice(i, i + 5).map(alertFlex_));
         for (let j = i; j < Math.min(i + 5, items.length); j++) sent.push(j);
