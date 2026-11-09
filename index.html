@@ -81,6 +81,7 @@ button:disabled{opacity:.45;cursor:default}
 .tbl .acts{display:flex;gap:4px}.tbl .acts button{padding:1px 8px;font-size:.74rem}
 .tbl .tg{border:0;background:transparent;color:var(--accent);padding:0 4px}
 
+.ic{padding:2px 7px;line-height:0}.ic svg{width:15px;height:15px}.ic.warn{border-color:var(--crit);color:var(--crit)}
 .fab{position:fixed;right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom,0px));border-radius:99px;padding:9px 16px;box-shadow:0 3px 12px rgba(0,0,0,.3);font-size:.85rem}
 
 /* แผ่นสแกน */
@@ -124,7 +125,7 @@ button:disabled{opacity:.45;cursor:default}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
 /* ---------- ตั้งค่า ---------- */
-const APP_VERSION = '2026-11-09.4';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
+const APP_VERSION = '2026-11-09.5';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
 const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
@@ -136,8 +137,8 @@ const qApi = qs.get('api') || '';
 let pendingApi = !HAS_EMBEDDED && API_RE.test(qApi) && qApi !== API ? qApi : '';   // ลิงก์จาก LINE: ให้ผู้ใช้ยืนยันก่อนเชื่อมต่อ
 const CFG = { liffId: '', mode: qs.get('mode') || '', hn: qs.get('hn') || '' };
 
-// session เก็บเฉพาะช่วงที่เปิดแอปอยู่ (ปิดแอปแล้วต้องใส่รหัสใหม่) ป้องกันคนอื่นใช้เครื่องต่อภายใต้รหัสของคนก่อนหน้า
-const sess = { get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} } };
+// เข้าสู่ระบบค้างไว้ในเครื่องจนกว่าจะกด "ออก" (หรือครบ 30 วัน) เปิดจากการแจ้งเตือนหรือลิงก์ใน LINE แล้วเข้าแอปได้เลยไม่ต้องใส่รหัสซ้ำ
+const sess = store;
 
 /* ---------- ฟังก์ชันช่วย ---------- */
 const $app = document.getElementById('app');
@@ -198,7 +199,7 @@ const isWide = () => window.innerWidth >= 900;
 function toast(s) { const t = document.getElementById('toast'); t.textContent = s; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2600); }
 function setSnap(s) { snap = s; offset = s.now - Date.now(); if (s.me) me = s.me; }
 function localLogout(msg) {
-  mode = null; me = null; appToken = null; mustChange = false; sess.set('tok', ''); clearInterval(timer);
+  mode = null; me = null; appToken = null; mustChange = false; sess.set('tok', ''); clearInterval(timer); clearInterval(alertTimer); alertingIds = new Set(); document.title = 'LabAlert อายุรกรรม';
   lg = { code: store.get('lastCode') || '', pin: '', field: store.get('lastCode') ? 'pin' : 'code', err: msg || '', busy: false };
 }
 
@@ -209,7 +210,7 @@ const dueAt = (p) => p.reg + p.wait * 60000;
 function sim(p) {
   const al = [], F = p.fols; let nx = dueAt(p), i = 0;
   for (let g = 0; g < 500; g++) {
-    while (i < F.length && F[i].at <= nx) { nx = F[i].at + REP; i++; }
+    while (i < F.length && F[i].at <= nx) { nx = Math.max(nx, F[i].at + REP); i++; }
     if (p.pr && nx >= p.pr) return { al: al, next: null };
     if (nx > nowMs()) return { al: al, next: nx };       // next = เวลาแจ้งเตือนครั้งถัดไป
     al.push(nx); nx += REP;
@@ -241,6 +242,65 @@ function chip(p) {
   if (s === 'due') return acked(p) ? '<span class="chip ack">รออีก ' + Math.max(0, Math.ceil((sim(p).next - nowMs()) / 60000)) + 'น.</span>' : '<span class="chip due">ครบเวลา</span>';
   return '<span class="chip wait">รออีก ' + Math.max(0, Math.ceil((sim(p).next - nowMs()) / 60000)) + 'น.</span>';
 }
+/* ---------- เตือนในแอป: เสียง สั่น และการแจ้งเตือนของระบบ (ฟรี ไม่จำกัดจำนวน) ---------- */
+const BEEP_REPEAT_MS = 2 * 60000;   // ยังไม่มีใครตามผล เตือนเสียงซ้ำทุก 2 นาที
+let soundOn = store.get('sound') !== '0';
+let audioCtx = null, alertingIds = new Set(), lastBeepAt = 0, alertTimer = null;
+function unlockAudio() {
+  try {
+    if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) { /* เบราว์เซอร์ไม่รองรับเสียง */ }
+}
+function beep() {
+  if (navigator.vibrate) { try { navigator.vibrate([200, 100, 200, 100, 200]); } catch (e) {} }
+  if (!soundOn || !audioCtx || audioCtx.state !== 'running') return false;
+  const t = audioCtx.currentTime;
+  [0, 0.25, 0.5].forEach((d) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'square'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.25, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.18);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t + d); o.stop(t + d + 0.2);
+  });
+  return true;
+}
+const notifyOK = () => 'Notification' in window && 'serviceWorker' in navigator && Notification.permission === 'granted';
+async function showNotice(p) {
+  if (!notifyOK()) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification('LabAlert · HN ' + normHN(p.hn), { body: 'ครบเวลา ยังไม่มีผู้ตามผล', tag: 'case-' + p.id, renotify: true, requireInteraction: true, icon: 'icon-192.png', badge: 'icon-192.png', vibrate: [200, 100, 200], data: { hn: normHN(p.hn) } });
+  } catch (e) { /* ไม่รองรับ */ }
+}
+async function clearNotice(id) {
+  if (!('serviceWorker' in navigator)) return;
+  try { const reg = await navigator.serviceWorker.ready; (await reg.getNotifications({ tag: 'case-' + id })).forEach((n) => n.close()); } catch (e) {}
+}
+/** ตรวจทุก 5 วินาที: มีรายการใหม่ที่ครบเวลายังไม่มีผู้ตามผล -> เสียง สั่น และแจ้งเตือนของระบบ แล้วเตือนเสียงซ้ำทุก 2 นาทีจนกว่าจะมีคนตามผล */
+function checkAlertFeedback() {
+  if (!mode || mustChange) return;
+  const hot = snap.patients.filter((p) => cat(p) === 'due' && !acked(p));
+  const ids = new Set(hot.map((p) => p.id)), fresh = hot.filter((p) => !alertingIds.has(p.id)), now = Date.now();
+  alertingIds.forEach((id) => { if (!ids.has(id)) clearNotice(id); });
+  alertingIds = ids;
+  if (fresh.length) { beep(); fresh.forEach(showNotice); lastBeepAt = now; }
+  else if (hot.length && now - lastBeepAt >= BEEP_REPEAT_MS) { beep(); lastBeepAt = now; }
+  document.title = (hot.length ? '(' + hot.length + ') ' : '') + 'LabAlert อายุรกรรม';
+}
+function bellBtn() {
+  const needPerm = 'Notification' in window && Notification.permission === 'default';
+  const locked = soundOn && audioCtx && audioCtx.state !== 'running';
+  const svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>' + (soundOn ? '' : '<path d="M2 2l20 20"/>') + '</svg>';
+  const label = needPerm ? 'เปิดการแจ้งเตือนบนหน้าจอและเสียง' : soundOn ? 'เสียงเตือน: เปิด (แตะเพื่อปิด)' : 'เสียงเตือน: ปิด (แตะเพื่อเปิด)';
+  return '<button class="ghost ic' + (needPerm || locked ? ' warn' : '') + '" data-act="sound" aria-label="' + label + '" title="' + label + '">' + svg + '</button>';
+}
+function openCase(hn) {
+  hl = hn; const p = snap.patients.filter((x) => normHN(x.hn) === normHN(hn) && !x.pr)[0];
+  if (p) tab = cat(p);
+  render();
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (ev) => { if (ev.data && ev.data.type === 'open-case' && mode) openCase(ev.data.hn); });
+
 function histHTML(p, admin) {
   return '<div class="hist">' + events(p, admin).slice().reverse().map((e) => '<span class="mono ' + (e.sys ? 'sys' : '') + '">' + fmt(e.t) + '</span><span class="' + (e.sys ? 'sys' : '') + '">' + esc(e.txt) + '</span>').join('') + '</div>';
 }
@@ -347,7 +407,7 @@ async function doSavePin() {
 }
 async function afterLogin() {
   tab = null; doneDay = null;
-  await load(true);
+  await load(true); checkAlertFeedback();
   if (hl) { const p = snap.patients.filter((x) => normHN(x.hn) === normHN(hl) && !x.pr)[0]; if (p) tab = cat(p); }
   schedule();
   if (CFG.mode === 'scan') scan = { hn: CFG.hn || '', wait: 45, custom: 30, pad: false };
@@ -387,8 +447,8 @@ function render() {
   const dayBar = tab === 'done' ? '<div class="daybar"><button data-day="-1">◀</button><span class="mono">' + dayLabel(doneDay, true) + (doneDay === snap.today ? ' (วันนี้)' : '') + '</span><button data-day="1"' + (doneDay >= snap.today ? ' disabled' : '') + '>▶</button>' +
     (doneDay !== snap.today ? '<button data-day="today">วันนี้</button>' : '') + '</div>' : '';
   $app.innerHTML = installBanner() +
-    '<div class="top"><div><b>LabAlert</b><span class="who">รหัส ' + esc(me ? me.code : '') + (admin ? ' · Admin' : '') + '</span></div>' +
-    '<div class="right"><span class="date">' + esc(dayLabel(snap.today, true)) + '</span><button class="ghost" data-act="logout">ออก</button></div></div>' +
+    '<div class="top"><div><b>LabAlert</b><span class="who">รหัส ' + esc(me ? me.code : '') + (admin ? ' · Admin' : '') + (admin && snap.quota && snap.quota.left != null ? ' · <span style="' + (snap.quota.left <= 40 ? 'color:var(--crit);font-weight:600' : '') + '">LINE ' + snap.quota.left + '</span>' : '') + '</span></div>' +
+    '<div class="right"><span class="date">' + esc(dayLabel(snap.today, true)) + '</span>' + bellBtn() + '<button class="ghost" data-act="logout">ออก</button></div></div>' +
     '<div class="tabs" role="tablist">' + L.map(([k, l]) => '<button class="tab ' + k + '" role="tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '">' + l + '<b class="mono">' + g[k].length + '</b></button>').join('') + '</div>' + dayBar +
     (list.length ? (wide ? tableW(list, admin) : '<div class="list">' + list.map((p, i) => rowM(p, admin, i + 1)).join('') + '</div>') : '<div class="empty">' + empty + '</div>') +
     '<button class="primary fab" data-act="scan">+ สแกน</button>' + (scan ? scanSheet() : '');
@@ -459,7 +519,7 @@ async function load(quiet, silent) {
   }
 }
 window.addEventListener('resize', () => { if (mode && !scan && !mustChange) render(); });
-function schedule() { clearInterval(timer); timer = setInterval(async () => { if (mode && !scan && !busy && !mustChange) { await load(true, true); render(); } else if (mode && !scan && !mustChange) render(); }, 20000); }
+function schedule() { clearInterval(alertTimer); alertTimer = setInterval(checkAlertFeedback, 5000); clearInterval(timer); timer = setInterval(async () => { if (mode && !scan && !busy && !mustChange) { await load(true, true); render(); } else if (mode && !scan && !mustChange) render(); }, 20000); }
 async function doCall(fn, ...args) {
   if (busy) return false; busy = true; busyOn();
   try { await call(fn, auth(), ...args); await load(true); return true; }
@@ -493,6 +553,11 @@ document.addEventListener('change', (e) => { if (e.target.id === 'scanFile') sca
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
+  unlockAudio();   // มือถือต้องมีการแตะก่อนจึงเล่นเสียงได้
+  if (d.act === 'sound') {
+    if ('Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (x) {} soundOn = true; store.set('sound', '1'); beep(); toast('เปิดการแจ้งเตือนแล้ว'); render(); return; }
+    soundOn = !soundOn; store.set('sound', soundOn ? '1' : '0'); if (soundOn) beep(); toast(soundOn ? 'เปิดเสียงเตือน' : 'ปิดเสียงเตือน'); render(); return;
+  }
   if (d.api) {
     if (d.api === 'save') {
       const v = (document.getElementById('apiUrl').value || '').trim();

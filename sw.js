@@ -1,6 +1,6 @@
 // Service worker ของ LabAlert: ทำให้ติดตั้งเป็นแอปได้ และโหลดหน้าล่าสุดจากเน็ตก่อนเสมอ (ไม่ค้างเวอร์ชันเก่า)
 // ไม่แตะคำขอไป Apps Script / LINE / CDN (ข้ามโดเมน) เพื่อไม่ให้ข้อมูลผู้ป่วยถูกเก็บในแคช
-const CACHE = 'labalert-shell-v2';
+const CACHE = 'labalert-shell-v3';
 const SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -18,4 +18,14 @@ self.addEventListener('fetch', (e) => {
       return res;
     }).catch(() => caches.match(req).then((hit) => hit || caches.match('index.html')))
   );
+});
+
+// กดที่การแจ้งเตือน: ดึงหน้าแอปที่เปิดอยู่ขึ้นมา (หรือเปิดใหม่) แล้วไปที่รายการนั้น
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const hn = (e.notification.data && e.notification.data.hn) || '';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (const c of list) { if ('focus' in c) { c.postMessage({ type: 'open-case', hn: hn }); return c.focus(); } }
+    return self.clients.openWindow('./?mode=follow&hn=' + encodeURIComponent(hn));
+  }));
 });
