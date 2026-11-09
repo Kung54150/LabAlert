@@ -123,7 +123,8 @@ function issueTempPins() {
 
 /* ---------- Web API (หน้าเว็บอยู่บน GitHub Pages เรียกผ่าน fetch แบบ POST) ---------- */
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
-function doGet() { return json_({ ok: true, data: 'LabAlert API' }); }
+const CODE_VERSION = 'line-setup-2';
+function doGet() { return json_({ ok: true, data: 'LabAlert API', v: CODE_VERSION }); }
 function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
@@ -145,12 +146,16 @@ function apiConfig() { return { liffId: prop_('LIFF_ID') }; }
  */
 function lineSetupEvents_(events) {
   if (prop_('LINE_SETUP') !== '1') return { ok: true };
+  if (!events.length) log_('line', 'line_ping', 'LINE ติดต่อเข้ามาได้ (เช่น กด Verify)');   // ยืนยันว่า Webhook ชี้มาถึงระบบนี้
   events.slice(0, 20).forEach((ev) => {
     const src = (ev && ev.source) || {};
     const id = src.groupId || src.roomId;
-    if (!id) return;
-    const text = ev.message && ev.message.type === 'text' ? String(ev.message.text).slice(0, 40) : '(' + (ev.type || '?') + ')';
-    log_('line', 'line_group_seen', 'groupId=' + id + ' | ข้อความ: ' + text);
+    if (id) {
+      const text = ev.message && ev.message.type === 'text' ? String(ev.message.text).slice(0, 40) : '(' + (ev.type || '?') + ')';
+      log_('line', 'line_group_seen', 'groupId=' + id + ' | ข้อความ: ' + text);
+    } else {
+      log_('line', 'line_event', 'type=' + (ev && ev.type) + ' source=' + (src.type || '?'));   // ไม่ได้มาจากกลุ่ม (เช่น แชตส่วนตัวกับบอท)
+    }
   });
   return { ok: true };
 }
