@@ -181,7 +181,7 @@ function apiAdd(auth, hn, waitMin) {
     const now = new Date();
     append_('Patients', {
       id: Utilities.getUuid(), queue: queue, hn: hn, registered_at: now, wait_min: waitMin,
-      next_alert_at: new Date(now.getTime() + waitMin * 60000), alert_count: 0, registered_by: w.name + ' (' + w.via + ')',
+      next_alert_at: new Date(now.getTime() + waitMin * 60000), alert_count: 0, registered_by: w.name,
     });
     log_(w.name, 'register', 'HN ' + hn + ' wait ' + waitMin + ' via ' + w.via);
     return snapshot_();
@@ -213,7 +213,7 @@ function apiPrint(auth, id) {
   return withLock_(() => {
     const p = findActive_(id);
     // TODO: เมื่อมีรายการ Lab ให้ตรวจว่าผลออกครบก่อนจึงอนุญาตให้พิมพ์
-    update_('Patients', p._row, { printed_at: new Date(), printed_by: w.name + ' (' + w.via + ')' });
+    update_('Patients', p._row, { printed_at: new Date(), printed_by: w.name });
     log_(w.name, 'print', 'HN ' + p.hn);
     return snapshot_();
   });
