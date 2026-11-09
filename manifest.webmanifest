@@ -1,0 +1,17 @@
+{
+  "name": "LabAlert อายุรกรรม",
+  "short_name": "LabAlert",
+  "description": "ติดตามผล Lab ผู้ป่วย แผนกอายุรกรรม",
+  "lang": "th",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B6158",
+  "theme_color": "#0B6158",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
