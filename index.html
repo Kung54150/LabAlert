@@ -87,6 +87,13 @@ const CFG = { liffId: '', mode: qs.get('mode') || '', hn: qs.get('hn') || '' };
 const $app = document.getElementById('app');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (ms) => ms ? new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Bangkok' }) : '–';
+// HN แสดงเป็นรูปแบบ 69-4948: ถ้ามีแต่ตัวเลข (5-10 หลัก) ใส่ขีดหลังเลข 2 หลักแรก
+const normHN = (v) => {
+  const t = String(v == null ? '' : v).trim();
+  if (/^\d{2}-\d+$/.test(t)) return t;
+  const d = t.replace(/[\s-]/g, '');
+  return /^\d{5,10}$/.test(d) ? d.slice(0, 2) + '-' + d.slice(2) : t;
+};
 const dur = (m) => m < 60 ? m + ' นาที' : ((m / 60) % 1 ? (m / 60).toFixed(1) : m / 60) + ' ชม.';
 
 let mode = null;            // 'line' | 'app' | null
@@ -158,13 +165,13 @@ function events(p, admin) {
 const openH = {};
 function card(p, admin) {
   const s = stateOf(p), ev = events(p, admin), main = ev.filter((e) => !e.sys), last = main[main.length - 1];
-  const open = openH[p.id], isHl = hl && p.hn === hl && !p.pr;
+  const open = openH[p.id], isHl = hl && normHN(p.hn) === normHN(hl) && !p.pr;
   const cs = cycleStart(p);
   const resp = admin && s === 'due' && cs != null ? '<div class="resp">รอตอบรับมาแล้ว ' + mins(nowMs() - cs) + ' นาที · แจ้งแล้ว ' + sim(p).filter((t) => t >= cs).length + ' ครั้ง</div>' : '';
   const acts = p.pr ? '' : '<div class="acts"><button class="' + (s === 'due' ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล' + (p.fols.length ? ' (' + p.fols.length + ')' : '') + '</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผลแล้ว</button></div>';
   return '<div class="card ' + s + (isHl ? ' hl' : '') + '" data-card="' + esc(p.id) + '">' +
     '<div class="row"><span class="q">คิว ' + p.queue + '</span>' + pill(p) + '</div>' +
-    '<div class="row"><span class="hn mono">HN ' + esc(p.hn) + '</span><span class="q">รอ ' + dur(p.wait) + '</span></div>' + resp +
+    '<div class="row"><span class="hn mono">HN ' + esc(normHN(p.hn)) + '</span><span class="q">รอ ' + dur(p.wait) + '</span></div>' + resp +
     (isHl && hlMode ? '<div class="hint">กดปุ่ม “ตามผล” เมื่อคุณตามผลรายนี้แล้ว</div>' : '') +
     '<div class="latest">ล่าสุด <span class="mono">' + fmt(last.t) + '</span> · ' + esc(last.txt.split(' · ')[0].replace(/\(.*$/, '')) + '</div>' + acts +
     '<button class="histbtn" data-hist="' + esc(p.id) + '">' + (open ? 'ซ่อนประวัติ ▲' : 'ประวัติเวลา (' + ev.length + ') ▼') + '</button>' +
@@ -186,7 +193,7 @@ async function init() {
     appToken = store.get('tok'); mode = 'app';
     try { setSnap(await call('apiList', auth())); } catch (e) { mode = null; appToken = null; store.set('tok', ''); }
   } else if (mode) await load(true);
-  if (hl) { const p = snap.patients.filter((x) => x.hn === hl && !x.pr)[0]; if (p) tab = stateOf(p); }
+  if (hl) { const p = snap.patients.filter((x) => normHN(x.hn) === normHN(hl) && !x.pr)[0]; if (p) tab = stateOf(p); }
   render();
 }
 function setupUI() {
@@ -263,7 +270,7 @@ async function doCall(fn, ...args) {
 /* ---------- สแกน ---------- */
 const inLine = () => !!(window.liff && mode === 'line' && liff.isInClient && liff.isInClient());
 async function lineQr() {
-  try { const r = await liff.scanCodeV2(); if (r && r.value) { scan.hn = String(r.value).trim(); render(); } }
+  try { const r = await liff.scanCodeV2(); if (r && r.value) { scan.hn = normHN(r.value); render(); } }
   catch (e) { toast('สแกนด้วย LINE ไม่ได้ ใช้ “เปิดกล้องสแกน” แทน'); }
 }
 async function startCamera() {
@@ -279,7 +286,7 @@ async function startCamera() {
       (txt) => {
         txt = String(txt).trim();
         if (txt === last) n++; else { last = txt; n = 1; }
-        if (n >= 2) { scan.hn = txt; h.stop().catch(() => {}); toast('อ่านได้ ' + txt + ' ตรวจให้ตรงกับสติกเกอร์'); render(); }
+        if (n >= 2) { scan.hn = normHN(txt); h.stop().catch(() => {}); toast('อ่านได้ ' + normHN(txt) + ' ตรวจให้ตรงกับสติกเกอร์'); render(); }
       }, () => {});
   } catch (e) { toast('เปิดกล้องสดไม่ได้ (' + String((e && e.message) || e).slice(0, 60) + ') ลองกด “ถ่ายรูปบาร์โค้ด” แทน'); }
 }
@@ -289,7 +296,7 @@ async function scanImage(file) {
   try {
     const h = new Html5Qrcode('reader');
     const r = await h.scanFile(file, false);
-    scan.hn = String(r).trim(); toast('อ่านได้: ' + scan.hn);
+    scan.hn = normHN(r); toast('อ่านได้: ' + scan.hn);
   } catch (e) { toast('อ่านบาร์โค้ดจากรูปไม่ได้ ถ่ายให้ใกล้ ชัด และตรงขึ้น หรือพิมพ์ HN'); }
   render();
 }
@@ -302,6 +309,7 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'nick') store.set('nick', e.target.value);
 });
 document.addEventListener('change', (e) => { if (e.target.id === 'scanFile') scanImage(e.target.files[0]); });
+document.addEventListener('change', (e) => { if (e.target.id === 'scanHn' && scan) { scan.hn = normHN(e.target.value); e.target.value = scan.hn; } });
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('button'); if (!b) return;
   const d = b.dataset;
@@ -336,7 +344,7 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'lineqr') { await lineQr(); return; }
   if (d.act === 'photo') { document.getElementById('scanFile').click(); return; }
   if (d.act === 'savescan') {
-    const hn = scan.hn.trim(), w = scanWait();
+    const hn = normHN(scan.hn), w = scanWait();
     if (!/^[0-9A-Za-z\-\/]{3,20}$/.test(hn)) { toast('รูปแบบ HN ไม่ถูกต้อง'); return; }
     if (await doCall('apiAdd', hn, w)) { scan = null; hl = ''; toast('เพิ่ม HN ' + hn + ' แล้ว แจ้งเตือน ' + fmt(nowMs() + w * 60000)); render(); }
     return;

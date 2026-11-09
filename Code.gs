@@ -170,15 +170,23 @@ function snapshot_() {
 
 function apiList(auth) { who_(auth); return snapshot_(); }
 
+/** HN รูปแบบ 69-4948: ถ้ามีแต่ตัวเลข 5-10 หลัก ใส่ขีดหลังเลข 2 หลักแรก */
+function normHn_(v) {
+  const t = String(v == null ? '' : v).trim();
+  if (/^\d{2}-\d+$/.test(t)) return t;
+  const d = t.replace(/[\s-]/g, '');
+  return /^\d{5,10}$/.test(d) ? d.slice(0, 2) + '-' + d.slice(2) : t;
+}
+
 function apiAdd(auth, hn, waitMin) {
   const w = who_(auth);
-  hn = String(hn || '').trim();
+  hn = normHn_(hn);
   waitMin = Math.round(+waitMin);
   if (!/^[0-9A-Za-z\-\/]{3,20}$/.test(hn)) throw new Error('รูปแบบ HN ไม่ถูกต้อง');
   if (!(waitMin >= 5 && waitMin <= 720)) throw new Error('เวลาแจ้งเตือนต้องอยู่ระหว่าง 5-720 นาที');
   return withLock_(() => {
     const rows = readAll_('Patients');
-    if (rows.some((r) => String(r.hn) === hn && !r.printed_at)) throw new Error('HN ' + hn + ' อยู่ในคิวแล้ว');
+    if (rows.some((r) => normHn_(r.hn) === hn && !r.printed_at)) throw new Error('HN ' + hn + ' อยู่ในคิวแล้ว');
     const today = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyyMMdd');
     const queue = rows.filter((r) => Utilities.formatDate(new Date(ms_(r.registered_at)), 'Asia/Bangkok', 'yyyyMMdd') === today)
       .reduce((m, r) => Math.max(m, +r.queue || 0), 0) + 1;
