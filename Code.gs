@@ -1,20 +1,22 @@
 /**
  * LabAlert - ติดตามผล Lab ผู้ป่วยอายุรกรรม
- * ฐานข้อมูล: Google Sheets (ชีต Patients, FollowUps, Log)
+ * ฐานข้อมูล: Google Sheets (ชีต Patients, FollowUps, Staff, Log)
+ * เข้าสู่ระบบด้วยรหัสพนักงาน + รหัสผ่านของตัวเอง (ชีต Staff) บันทึก Time stamp เป็นรหัสพนักงาน
  * ความลับทั้งหมดเก็บใน Script Properties (ไม่ฝังในโค้ด):
  *   LINE_TOKEN        Channel access token ของบอท (Messaging API)
  *   GROUP_ID          ID กลุ่ม LINE ที่รับแจ้งเตือน
- *   DEPT_PIN          รหัสแผนก (ตัวเลข) สำหรับเข้าใช้ผ่านแอป/เว็บ
+ *   ADMIN_CODES       (ไม่บังคับ) รหัสพนักงานที่เป็นแอดมิน คั่นด้วยจุลภาค ค่าเริ่มต้น 54150
  *   LIFF_ID           LIFF ID ของแอปนี้
  *   LOGIN_CHANNEL_ID  Channel ID ของ LINE Login channel ที่ LIFF สังกัดอยู่
  *   SHEET_ID          (ไม่บังคับ) ถ้าไม่ได้ผูกสคริปต์กับชีต
  */
 const REPEAT_MIN = 10;          // แจ้งซ้ำเมื่อไม่มีใครตอบ
-const KEEP_DONE_HOURS = 24;     // แสดงรายการในแท็บเสร็จสิ้นย้อนหลังกี่ชั่วโมง
+const STALE_HOURS = 24;         // รายการที่ยังไม่พิมพ์ผลเกินกี่ชั่วโมงให้ย้ายไปแท็บเสร็จสิ้นของวันที่ลงทะเบียน และหยุดแจ้งเตือน
 const SCHEMA = {
   Patients: ['id', 'queue', 'hn', 'registered_at', 'wait_min', 'next_alert_at', 'alert_count',
              'last_alert_at', 'registered_by', 'printed_at', 'printed_by'],
   FollowUps: ['id', 'patient_id', 'n', 'at', 'by', 'via', 'ext_min'],
+  Staff: ['code', 'name', 'role', 'pin_hash', 'salt', 'temp_pin', 'updated_at'],
   Log: ['at', 'who', 'action', 'detail'],
 };
 
@@ -35,6 +37,7 @@ function sheet_(name) {
     sh.getRange(1, 1, 1, SCHEMA[name].length).setValues([SCHEMA[name]]).setFontWeight('bold');
     sh.setFrozenRows(1);
     if (name === 'Patients') sh.getRange('C:C').setNumberFormat('@');
+    if (name === 'Staff') sh.getRange('A:F').setNumberFormat('@');
   }
   return sh;
 }
@@ -80,10 +83,40 @@ function setup() {
     sh.setFrozenRows(1);
   });
   sheet_('Patients').getRange('C:C').setNumberFormat('@'); // HN เป็นข้อความ
+  sheet_('Staff').getRange('A:F').setNumberFormat('@');    // รหัสพนักงาน/รหัสผ่านเป็นข้อความ (ไม่ตัดเลข 0 นำหน้า)
+  ensureAdmins_();
   ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === 'checkAlerts')
     .forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('checkAlerts').timeBased().everyMinutes(1).create();
-  return 'ติดตั้งเสร็จ: สร้างชีตและตัวตั้งเวลาทุก 1 นาทีแล้ว';
+  return 'ติดตั้งเสร็จ: สร้างชีตและตัวตั้งเวลาทุก 1 นาทีแล้ว ต่อไปกรอกรายชื่อพนักงานในชีต Staff แล้วรัน issueTempPins';
+}
+
+/* ---------- บัญชีพนักงาน (ชีต Staff: code, name, role, pin_hash, salt, temp_pin, updated_at) ---------- */
+const adminCodes_ = () => (prop_('ADMIN_CODES') || '54150').split(',').map((x) => x.trim()).filter(Boolean);
+function ensureAdmins_() {
+  const have = readAll_('Staff').map((r) => String(r.code).trim());
+  adminCodes_().forEach((c) => { if (have.indexOf(c) < 0) append_('Staff', { code: c, name: '', role: 'Admin' }); });
+}
+function staffByCode_(code) { return readAll_('Staff').filter((r) => String(r.code).trim() === code)[0] || null; }
+function roleOf_(st, code) {
+  return adminCodes_().indexOf(code) >= 0 || (st && String(st.role).trim().toLowerCase() === 'admin') ? 'Admin' : 'Staff';
+}
+function hashPin_(pin, salt) {
+  return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + ':' + pin));
+}
+/** สร้างรหัสผ่านชั่วคราว 6 หลักให้พนักงานที่ยังไม่มีรหัส (รันจาก editor) ดูรหัสได้ที่ชีต Staff คอลัมน์ temp_pin พนักงานจะถูกบังคับตั้งรหัสใหม่เมื่อเข้าครั้งแรก */
+function issueTempPins() {
+  assertOwner_();
+  ensureAdmins_();
+  let n = 0;
+  readAll_('Staff').forEach((r) => {
+    if (String(r.code).trim() && !String(r.pin_hash || '') && !String(r.temp_pin || '')) {
+      const pin = String(parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 8), 16) % 900000 + 100000);
+      update_('Staff', r._row, { temp_pin: pin, updated_at: new Date() });
+      n++;
+    }
+  });
+  return 'สร้างรหัสผ่านชั่วคราวให้ ' + n + ' คน ดูที่ชีต Staff คอลัมน์ temp_pin';
 }
 
 /* ---------- Web API (หน้าเว็บอยู่บน GitHub Pages เรียกผ่าน fetch แบบ POST) ---------- */
@@ -92,7 +125,7 @@ function doGet() { return json_({ ok: true, data: 'LabAlert API' }); }
 function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    const table = { apiLogin: apiLogin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint };
+    const table = { apiLogin: apiLogin, apiChangePin: apiChangePin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint };
     const fn = Object.prototype.hasOwnProperty.call(table, req.fn) ? table[req.fn] : null;
     if (!fn) throw new Error('ไม่รู้จักคำสั่ง');
     return json_({ ok: true, data: fn.apply(null, Array.isArray(req.args) ? req.args : []) });
@@ -103,27 +136,61 @@ function doPost(e) {
 function apiConfig() { return { liffId: prop_('LIFF_ID') }; }
 
 /* ---------- ยืนยันตัวตน ---------- */
-function apiLogin(pin) {
-  const cache = CacheService.getScriptCache();
-  const fails = +cache.get('fails') || 0;
+function apiLogin(code, pin) {
+  code = String(code || '').trim();
+  pin = String(pin || '').trim();
+  if (!/^\d{3,10}$/.test(code) || !/^\d{4,8}$/.test(pin)) throw new Error('กรอกรหัสพนักงานและรหัสผ่านให้ครบ');
+  const cache = CacheService.getScriptCache(), key = 'f_' + code;
+  const fails = +cache.get(key) || 0;
   if (fails >= 10) throw new Error('ใส่รหัสผิดหลายครั้ง รอ 10 นาทีแล้วลองใหม่');
-  const real = prop_('DEPT_PIN');
-  if (!real) throw new Error('ยังไม่ได้ตั้งรหัสแผนก (DEPT_PIN)');
-  if (String(pin) !== real) {
-    cache.put('fails', String(fails + 1), 600);
-    throw new Error('รหัสไม่ถูกต้อง');
+  const st = staffByCode_(code);
+  let ok = false, must = false;
+  if (st) {
+    if (String(st.pin_hash || '')) ok = hashPin_(pin, String(st.salt)) === String(st.pin_hash);
+    else if (String(st.temp_pin || '') !== '' && String(st.temp_pin) === pin) { ok = true; must = true; }
   }
-  const token = Utilities.getUuid();
-  cache.put('s_' + token, '1', 21600);
-  return { token: token };
+  if (!ok) {
+    cache.put(key, String(fails + 1), 600);
+    log_(code, 'login_fail', '');
+    throw new Error('รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง');
+  }
+  cache.remove(key);
+  const role = roleOf_(st, code), token = Utilities.getUuid();
+  cache.put('s_' + token, JSON.stringify({ code: code, role: role, must: must }), 21600);
+  log_(code, 'login', must ? 'temp pin' : '');
+  return { token: token, must: must, me: { code: code, role: role } };
+}
+
+/** พนักงานตั้งรหัสผ่านใหม่ (6-8 หลัก) ใช้ครั้งแรกหลังเข้าด้วยรหัสชั่วคราว */
+function apiChangePin(auth, newPin) {
+  const ses = session_(auth);
+  newPin = String(newPin || '').trim();
+  if (!/^\d{6,8}$/.test(newPin)) throw new Error('รหัสผ่านใหม่ต้องเป็นตัวเลข 6-8 หลัก');
+  return withLock_(() => {
+    const st = staffByCode_(ses.code);
+    if (!st) throw new Error('ไม่พบบัญชีพนักงาน');
+    const salt = Utilities.getUuid();
+    update_('Staff', st._row, { pin_hash: hashPin_(newPin, salt), salt: salt, temp_pin: '', updated_at: new Date() });
+    ses.must = false;
+    CacheService.getScriptCache().put('s_' + auth.token, JSON.stringify(ses), 21600);
+    log_(ses.code, 'change_pin', '');
+    return { ok: true };
+  });
+}
+
+function session_(auth) {
+  if (!auth || auth.type !== 'app' || !auth.token) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
+  const v = CacheService.getScriptCache().get('s_' + auth.token);
+  if (!v) throw new Error('หมดเวลา กรุณาเข้าสู่ระบบใหม่');
+  return JSON.parse(v);
 }
 
 function who_(auth) {
   if (!auth) throw new Error('ยังไม่ได้เข้าสู่ระบบ');
   if (auth.type === 'app') {
-    if (!auth.token || !CacheService.getScriptCache().get('s_' + auth.token)) throw new Error('หมดเวลา กรุณาเข้าสู่ระบบใหม่');
-    const nick = String(auth.nick || '').trim().slice(0, 30);
-    return { name: nick ? nick + ' (แผนก)' : 'แผนก (แอป)', via: 'แอป' };
+    const ses = session_(auth);
+    if (ses.must) throw new Error('ต้องตั้งรหัสผ่านใหม่ก่อนใช้งาน');
+    return { name: ses.code, code: ses.code, role: ses.role, via: 'แอป' };
   }
   if (auth.type === 'line') return lineWho_(String(auth.accessToken || ''));
   throw new Error('ไม่รู้จักวิธีเข้าสู่ระบบ');
@@ -143,32 +210,51 @@ function lineWho_(token) {
   const r = UrlFetchApp.fetch('https://api.line.me/v2/profile', { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) throw new Error('อ่านโปรไฟล์ LINE ไม่สำเร็จ');
   const pf = JSON.parse(r.getContentText());
-  const who = { name: pf.displayName, via: 'LINE', userId: pf.userId };
+  const who = { name: pf.displayName, code: pf.displayName, role: 'Staff', via: 'LINE', userId: pf.userId };
   cache.put(key, JSON.stringify(who), 300);
   return who;
 }
 
 /* ---------- API สำหรับหน้าเว็บ ---------- */
-function snapshot_() {
-  const now = Date.now();
+const dayStr_ = (ms) => Utilities.formatDate(new Date(ms), 'Asia/Bangkok', 'yyyyMMdd');
+
+/**
+ * รายการที่ส่งให้หน้าแอป:
+ * - กำลังติดตาม = ยังไม่พิมพ์ผล และลงทะเบียนไม่เกิน STALE_HOURS ชั่วโมง (ครอบคลุมเวรดึกข้ามเที่ยงคืน)
+ * - เสร็จสิ้นของวัน `day` (ค่าเริ่มต้นวันนี้) = พิมพ์ผลในวันนั้น หรือค้างเกิน STALE_HOURS ที่ลงทะเบียนในวันนั้น
+ */
+function snapshot_(day) {
+  const now = Date.now(), today = dayStr_(now);
+  day = /^\d{8}$/.test(String(day || '')) ? String(day) : today;
+  const staleMs = STALE_HOURS * 3600e3;
   const byP = {};
   readAll_('FollowUps').forEach((f) => {
     (byP[f.patient_id] = byP[f.patient_id] || []).push({ n: +f.n, at: ms_(f.at), by: f.by, via: f.via, ext: +f.ext_min });
   });
+  const keep = (r) => {
+    const reg = ms_(r.registered_at), pr = ms_(r.printed_at);
+    if (!pr && now - reg < staleMs) return true;
+    return dayStr_(pr || reg) === day;
+  };
   const list = readAll_('Patients')
-    .filter((r) => r.id && (!r.printed_at || now - ms_(r.printed_at) < KEEP_DONE_HOURS * 3600e3))
+    .filter((r) => r.id && keep(r))
     .map((r) => ({
       id: r.id, queue: +r.queue, hn: String(r.hn), reg: ms_(r.registered_at), wait: +r.wait_min,
       next: ms_(r.next_alert_at), alerts: +r.alert_count || 0, lastAlert: ms_(r.last_alert_at),
       regBy: r.registered_by, pr: ms_(r.printed_at), prBy: r.printed_by,
+      stale: !ms_(r.printed_at) && now - ms_(r.registered_at) >= staleMs,
       fols: (byP[r.id] || []).sort((a, b) => a.n - b.n),
     }))
-    // เรียงตามเวลาที่ผลควรออก (ลงทะเบียน + เวลารอ) คนที่ครบกำหนดก่อนอยู่บนสุด หน้าเว็บแยกแท็บเสร็จสิ้นเอง
     .sort((a, b) => (a.reg + a.wait * 60000) - (b.reg + b.wait * 60000));
-  return { now: now, patients: list };
+  return { now: now, today: today, day: day, patients: list };
 }
 
-function apiList(auth) { who_(auth); return snapshot_(); }
+function apiList(auth, day) {
+  const w = who_(auth);
+  const s = snapshot_(day);
+  s.me = { code: w.code || w.name, role: w.role || 'Staff' };
+  return s;
+}
 
 /** HN รูปแบบ 69-4948: ถ้ามีแต่ตัวเลข 5-10 หลัก ใส่ขีดหลังเลข 2 หลักแรก */
 function normHn_(v) {
@@ -237,7 +323,7 @@ function checkAlerts() {
   if (!lock.tryLock(20000)) return;
   try {
     const now = Date.now();
-    const due = readAll_('Patients').filter((r) => r.id && !r.printed_at && ms_(r.next_alert_at) && ms_(r.next_alert_at) <= now);
+    const due = readAll_('Patients').filter((r) => r.id && !r.printed_at && now - ms_(r.registered_at) < STALE_HOURS * 3600e3 && ms_(r.next_alert_at) && ms_(r.next_alert_at) <= now);
     if (!due.length) return;
     const items = due.map((r) => ({
       hn: String(r.hn), count: +r.alert_count || 0,
