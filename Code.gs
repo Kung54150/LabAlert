@@ -7,7 +7,6 @@
  *   DEPT_PIN          รหัสแผนก (ตัวเลข) สำหรับเข้าใช้ผ่านแอป/เว็บ
  *   LIFF_ID           LIFF ID ของแอปนี้
  *   LOGIN_CHANNEL_ID  Channel ID ของ LINE Login channel ที่ LIFF สังกัดอยู่
- *   SCANNER_URL       (ไม่บังคับ) ลิงก์หน้าสแกนบน GitHub Pages เช่น https://kung54150.github.io/LabAlert/scan.html
  *   SHEET_ID          (ไม่บังคับ) ถ้าไม่ได้ผูกสคริปต์กับชีต
  */
 const REPEAT_MIN = 10;          // แจ้งซ้ำเมื่อไม่มีใครตอบ
@@ -87,18 +86,21 @@ function setup() {
   return 'ติดตั้งเสร็จ: สร้างชีตและตัวตั้งเวลาทุก 1 นาทีแล้ว';
 }
 
-/* ---------- Web App ---------- */
-function doGet(e) {
-  const p = (e && e.parameter) || {};
-  const cfg = JSON.stringify({ liffId: prop_('LIFF_ID'), mode: String(p.mode || ''), hn: String(p.hn || ''),
-    scannerUrl: prop_('SCANNER_URL'), appUrl: ScriptApp.getService().getUrl() })
-    .replace(/</g, '\\u003c');
-  const t = HtmlService.createTemplateFromFile('Index');
-  t.cfg = cfg;
-  return t.evaluate().setTitle('LabAlert อายุรกรรม')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+/* ---------- Web API (หน้าเว็บอยู่บน GitHub Pages เรียกผ่าน fetch แบบ POST) ---------- */
+function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function doGet() { return json_({ ok: true, data: 'LabAlert API' }); }
+function doPost(e) {
+  try {
+    const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    const table = { apiLogin: apiLogin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint };
+    const fn = Object.prototype.hasOwnProperty.call(table, req.fn) ? table[req.fn] : null;
+    if (!fn) throw new Error('ไม่รู้จักคำสั่ง');
+    return json_({ ok: true, data: fn.apply(null, Array.isArray(req.args) ? req.args : []) });
+  } catch (err) {
+    return json_({ ok: false, error: String((err && err.message) || err) });
+  }
 }
+function apiConfig() { return { liffId: prop_('LIFF_ID') }; }
 
 /* ---------- ยืนยันตัวตน ---------- */
 function apiLogin(pin) {
@@ -265,22 +267,10 @@ function push_(messages) {
   if (r.getResponseCode() !== 200) throw new Error('LINE ' + r.getResponseCode() + ' ' + r.getContentText());
 }
 
-function liffUrl_(query) { return 'https://liff.line.me/' + prop_('LIFF_ID') + (query ? '?' + query : ''); }
-
-function alertFlex_(i) {
-  const text = i.count === 0 ? 'ครบเวลาตามผล' : 'แจ้งซ้ำครั้งที่ ' + (i.count + 1) + ' · เลยกำหนด ' + i.over + ' นาที';
-  return {
-    type: 'flex', altText: 'HN ' + i.hn + ' ' + text,
-    contents: {
-      type: 'bubble',
-      header: { type: 'box', layout: 'vertical', contents: [{ type: 'text', text: 'LabAlert · ' + text, weight: 'bold', size: 'sm', color: i.count ? '#B3261E' : '#946000' }] },
-      body: { type: 'box', layout: 'vertical', contents: [{ type: 'text', text: 'HN ' + i.hn, weight: 'bold', size: 'xl' }] },
-      footer: { type: 'box', layout: 'vertical', contents: [
-        { type: 'button', style: 'primary', height: 'sm', action: { type: 'uri', label: 'ตามผล', uri: liffUrl_('mode=follow&hn=' + encodeURIComponent(i.hn)) } },
-        { type: 'button', style: 'secondary', height: 'sm', margin: 'sm', action: { type: 'uri', label: 'เปิดรายการทั้งหมด', uri: liffUrl_('') } },
-      ] },
-    },
-  };
+function liffUrl_(query) {
+  // ลิงก์ LIFF พาไปหน้าเว็บบน GitHub Pages (ตั้ง Endpoint URL ของ LIFF ไว้ที่หน้านั้น) พร้อมลิงก์ API ให้หน้าเว็บจำ
+  const q = (query ? query + '&' : '') + 'api=' + encodeURIComponent(ScriptApp.getService().getUrl());
+  return 'https://liff.line.me/' + prop_('LIFF_ID') + '?' + q;
 }
 
 /** ส่งข้อความเมนู (สแกน / ดูคิว) เข้ากลุ่ม แล้วให้ปักหมุดเป็นประกาศ: รันจาก editor ครั้งเดียว */
