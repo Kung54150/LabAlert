@@ -170,9 +170,9 @@ async function init() {
 function loginUI() {
   const lineBtn = (CFG.liffId && window.liff) ? '<button class="primary" id="lineLogin">เข้าสู่ระบบด้วย LINE</button><div class="who">หรือใช้รหัสแผนก</div>' : '';
   $app.innerHTML = '<div class="login"><h1>LabAlert อายุรกรรม</h1>' + lineBtn +
-    '<b>ใส่รหัสแผนก</b><div class="dots">' + [0, 1, 2, 3].map((i) => '<i class="' + (i < pin.length ? 'on' : '') + '"></i>').join('') + '</div>' +
+    '<b>ใส่รหัสแผนก</b><div class="dots">' + Array.from({ length: Math.max(4, pin.length) }, (_, i) => '<i class="' + (i < pin.length ? 'on' : '') + '"></i>').join('') + '</div>' +
     '<div class="err">' + esc(pinErr) + '</div>' +
-    '<div class="pad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((k) => k === '' ? '<span></span>' : '<button data-pin="' + k + '">' + k + '</button>').join('') + '</div>' +
+    '<div class="pad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, '⌫', 0, 'OK'].map((k) => '<button data-pin="' + k + '"' + (k === 'OK' ? ' class="primary" aria-label="ยืนยัน"' : '') + '>' + (k === 'OK' ? '✓' : k) + '</button>').join('') + '</div>' +
     '<label class="who" for="nick">ชื่อเล่น (ไม่บังคับ ใช้บันทึกว่าใครกด)</label><input id="nick" maxlength="30" value="' + esc(store.get('nick') || '') + '" style="font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:220px"></div>';
 }
 
@@ -246,11 +246,15 @@ document.addEventListener('click', async (e) => {
   const d = b.dataset;
   if (b.id === 'lineLogin') { try { liff.login(); } catch (x) { toast('เปิดผ่านแอป LINE เพื่อเข้าสู่ระบบ'); } return; }
   if (d.pin != null) {
-    pinErr = ''; if (d.pin === '⌫') pin = pin.slice(0, -1); else if (pin.length < 4) pin += d.pin;
-    if (pin.length === 4) {
-      const p = pin; pin = '';
-      try { appToken = (await call('apiLogin', p)).token; mode = 'app'; await load(true); schedule(); if (CFG.mode === 'scan') scan = { hn: '', wait: 45, custom: 30 }; } catch (x) { pinErr = x.message; }
-    }
+    pinErr = '';
+    if (d.pin === '⌫') pin = pin.slice(0, -1);
+    else if (d.pin === 'OK') {
+      if (pin.length < 4) { pinErr = 'ใส่รหัสอย่างน้อย 4 หลัก'; }
+      else {
+        const p = pin; pin = '';
+        try { appToken = (await call('apiLogin', p)).token; mode = 'app'; await load(true); schedule(); if (CFG.mode === 'scan') scan = { hn: '', wait: 45, custom: 30 }; } catch (x) { pinErr = x.message; }
+      }
+    } else if (pin.length < 8) pin += d.pin;
     render(); return;
   }
   if (d.tab) { tab = d.tab; render(); return; }
