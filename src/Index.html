@@ -252,7 +252,7 @@ document.addEventListener('click', async (e) => {
       if (pin.length < 4) { pinErr = 'ใส่รหัสอย่างน้อย 4 หลัก'; }
       else {
         const p = pin; pin = '';
-        try { appToken = (await call('apiLogin', p)).token; mode = 'app'; await load(true); schedule(); if (CFG.mode === 'scan') scan = { hn: '', wait: 45, custom: 30 }; } catch (x) { pinErr = x.message; }
+        try { appToken = (await call('apiLogin', p)).token; mode = 'app'; setSnap(await call('apiList', auth())); schedule(); if (CFG.mode === 'scan') scan = { hn: '', wait: 45, custom: 30 }; } catch (x) { mode = null; appToken = null; pinErr = x.message; }
       }
     } else if (pin.length < 8) pin += d.pin;
     render(); return;

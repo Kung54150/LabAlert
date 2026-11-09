@@ -26,7 +26,18 @@ function ss_() {
   const id = prop_('SHEET_ID');
   return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
 }
-function sheet_(name) { return ss_().getSheetByName(name); }
+function sheet_(name) {
+  const ss = ss_();
+  if (!ss) throw new Error('ไม่พบชีต: ให้สร้างสคริปต์จากเมนู Extensions > Apps Script ในไฟล์ Google Sheet หรือตั้ง SHEET_ID');
+  let sh = ss.getSheetByName(name);
+  if (!sh) { // สร้างแท็บที่ขาดให้เองถ้ายังไม่ได้รัน setup
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, SCHEMA[name].length).setValues([SCHEMA[name]]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    if (name === 'Patients') sh.getRange('C:C').setNumberFormat('@');
+  }
+  return sh;
+}
 
 function readAll_(name) {
   const sh = sheet_(name), vals = sh.getDataRange().getValues();
