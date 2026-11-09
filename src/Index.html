@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LabAlert อายุรกรรม</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root{--bg:#EEF2F1;--surface:#fff;--sunk:#E3E9E7;--line:#CDD7D4;--ink:#14211F;--muted:#5B6B68;--accent:#0B6158;--accent-ink:#fff;
+ --ok:#1D7A46;--ok-soft:#DCEFE3;--warn:#9A6100;--warn-soft:#FBEBCB;--crit:#B3261E;--crit-soft:#F8DAD7;
+ --f-body:"IBM Plex Sans Thai",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#0F1716;--surface:#172220;--sunk:#1E2B29;--line:#2C3C39;--ink:#E4EEEC;--muted:#93A6A2;
+ --accent:#4FB7A9;--accent-ink:#06201C;--ok:#6BCB8F;--ok-soft:#173326;--warn:#F0B54A;--warn-soft:#3A2C10;--crit:#F2877F;--crit-soft:#3E1A17}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-body);padding:16px max(16px,env(safe-area-inset-right)) 96px max(16px,env(safe-area-inset-left))}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 12px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center}
+h1{font-size:1.3rem;margin:0}
+.who{font-size:.8rem;color:var(--muted)}
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:10px;width:fit-content;max-width:100%}
+.tabs button{border:0;background:transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--surface);font-weight:600}
+.stabs{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;max-width:620px}
+.stab{border:0;border-bottom:4px solid transparent;border-radius:0;background:transparent;padding:9px 4px;font-size:.85rem;display:flex;flex-direction:column;align-items:center;line-height:1.25}
+.stab b{font-size:1.2rem}.stab.due{color:var(--crit)}.stab.wait{color:var(--warn)}.stab.done{color:var(--ok)}
+.stab[aria-selected="true"]{font-weight:600}
+.stab[aria-selected="true"].due{border-bottom-color:var(--crit);background:var(--crit-soft)}
+.stab[aria-selected="true"].wait{border-bottom-color:#E2A412;background:var(--warn-soft)}
+.stab[aria-selected="true"].done{border-bottom-color:var(--ok);background:var(--ok-soft)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-left:8px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card.due{border-left-color:var(--crit)}.card.wait{border-left-color:#E2A412}.card.done{border-left-color:var(--ok)}
+.card.hl{outline:3px solid var(--accent)}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.q{font-size:.75rem;color:var(--muted)}.hn{font-size:1.2rem;font-weight:600}
+.pill{font-size:.78rem;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.pill.due{background:var(--crit);color:#fff;animation:blink 1s steps(2,start) infinite}
+.pill.wait{background:var(--warn-soft);color:var(--warn)}.pill.done{background:var(--ok-soft);color:var(--ok)}
+@keyframes blink{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.pill.due{animation:none;outline:2px solid var(--crit)}}
+.latest{font-size:.8rem;color:var(--muted)}
+.resp{font-size:.82rem;font-weight:600;color:var(--crit);background:var(--crit-soft);border-radius:6px;padding:3px 8px}
+.acts{display:flex;gap:6px}.acts button{flex:1}
+.histbtn{align-self:flex-start;border:0;background:transparent;color:var(--accent);padding:2px 0;font-size:.8rem}
+.hist{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.78rem;border-top:1px dashed var(--line);padding-top:6px}
+.hist .sys{color:var(--muted)}
+.hint{background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:6px 10px;font-size:.82rem}
+.empty{color:var(--muted);text-align:center;padding:32px 0}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));border-radius:99px;padding:13px 24px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+.sheet{background:var(--surface);width:min(460px,100%);border-radius:16px 16px 0 0;padding:16px max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:10px;max-height:92%;overflow:auto}
+@media(min-width:600px){.sheet-bg{align-items:center}.sheet{border-radius:16px}}
+.sheet input{font:inherit;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{flex:1 1 auto;border-radius:99px;font-size:.85rem;padding:6px 8px;white-space:nowrap}
+.chips button.sel{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+#reader{width:100%;min-height:0}
+.login{max-width:340px;margin:8vh auto 0;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.dots{display:flex;gap:12px}.dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--accent)}.dots i.on{background:var(--accent)}
+.pad{display:grid;grid-template-columns:repeat(3,68px);gap:10px}.pad button{height:58px;font-size:1.3rem;border-radius:50%}
+.err{color:var(--crit);font-size:.85rem;min-height:1.3em}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:.88rem;z-index:20}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="toast" id="toast" hidden></div>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script>
+const CFG = <?!= cfg ?>;
+const $app = document.getElementById('app');
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (ms) => ms ? new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Bangkok' }) : '–';
+const dur = (m) => m < 60 ? m + ' นาที' : ((m / 60) % 1 ? (m / 60).toFixed(1) : m / 60) + ' ชม.';
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+let mode = null;            // 'line' | 'app' | null
+let appToken = null, pin = '', pinErr = '';
+let snap = { now: Date.now(), patients: [] }, offset = 0;
+let tab = 'wait', hl = CFG.hn || '', hlMode = CFG.mode === 'follow' ? CFG.hn : '';
+let scan = null;            // { hn, wait, custom, open }
+let busy = false, timer = null;
+
+const call = (fn, ...args) => new Promise((ok, no) =>
+  google.script.run.withSuccessHandler(ok).withFailureHandler((e) => no(new Error(String((e && e.message) || e).replace(/^Error:\s*/, ''))))[fn](...args));
+const nowMs = () => Date.now() + offset;
+function auth() {
+  if (mode === 'line') return { type: 'line', accessToken: liff.getAccessToken() };
+  return { type: 'app', token: appToken, nick: store.get('nick') || '' };
+}
+function toast(s) { const t = document.getElementById('toast'); t.textContent = s; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2400); }
+function setSnap(s) { snap = s; offset = s.now - Date.now(); }
+
+const REP = 10 * 60000;
+const dueAt = (p) => p.reg + p.wait * 60000;
+/** จำลองรอบแจ้งเตือน: ครบเวลาแล้วแจ้งทุก 10 นาที ถ้ามีคนตามผลก่อน ข้ามรอบนั้นแล้วนับ 10 นาทีใหม่ (ใช้แสดงเวลารอตอบรับในหน้า Admin) */
+function sim(p) {
+  const al = [], F = p.fols; let nx = dueAt(p), i = 0;
+  for (let g = 0; g < 500; g++) {
+    while (i < F.length && F[i].at <= nx) { nx = F[i].at + REP; i++; }
+    if (p.pr && nx >= p.pr) break;
+    if (nx > nowMs()) break;
+    al.push(nx); nx += REP;
+  }
+  return al;
+}
+function stateOf(p) {
+  if (p.pr) return 'done';
+  if (!p.fols.length) return nowMs() >= dueAt(p) ? 'due' : 'wait';
+  const lf = p.fols[p.fols.length - 1];
+  return p.lastAlert && p.lastAlert > lf.at ? 'due' : 'wait';
+}
+function cycleStart(p) { const lf = p.fols[p.fols.length - 1]; const a = sim(p).filter((t) => !lf || t > lf.at); return a.length ? a[0] : null; }
+function respOf(p, k) { const f = p.fols[k], prev = k ? p.fols[k - 1].at : -1; const a = sim(p).filter((t) => t > prev && t <= f.at); return a.length ? f.at - a[0] : null; }
+const mins = (ms) => Math.max(0, Math.round(ms / 60000));
+const isAdmin = () => window.innerWidth >= 900;
+function pill(p) {
+  const s = stateOf(p);
+  if (s === 'done') return '<span class="pill done">พิมพ์ผลแล้ว</span>';
+  if (s === 'due') return '<span class="pill due">ครบเวลา · ยังไม่ตามผล</span>';
+  const next = p.fols.length ? p.next : dueAt(p);
+  return '<span class="pill wait">รออีก ' + Math.max(0, Math.ceil((next - nowMs()) / 60000)) + ' นาที</span>';
+}
+function events(p, admin) {
+  const ev = [{ t: p.reg, o: 0, txt: 'ลงทะเบียน (รอ ' + dur(p.wait) + ') · ' + p.regBy }];
+  p.fols.forEach((f, k) => {
+    let x = 'ตามผลครั้งที่ ' + (k + 1) + ' · ' + f.by + ' (' + f.via + ')';
+    if (admin) { const r = respOf(p, k); x += r == null ? ' · ตามก่อนถึงเวลาแจ้ง' : ' · รอตอบรับ ' + mins(r) + ' นาที'; }
+    ev.push({ t: f.at, o: 1, txt: x });
+  });
+  if (p.pr) ev.push({ t: p.pr, o: 2, txt: 'พิมพ์ผล · ' + p.prBy });
+  if (admin) sim(p).forEach((t, k) => ev.push({ t: t, o: 1, sys: 1, txt: 'ระบบแจ้งเตือน LINE (' + (k + 1) + ')' }));
+  return ev.sort((a, b) => a.t - b.t || a.o - b.o);
+}
+const openH = {};
+function card(p, admin) {
+  const s = stateOf(p), ev = events(p, admin), main = ev.filter((e) => !e.sys), last = main[main.length - 1];
+  const open = openH[p.id], isHl = hl && p.hn === hl && !p.pr;
+  const cs = cycleStart(p);
+  const resp = admin && s === 'due' && cs != null ? '<div class="resp">รอตอบรับมาแล้ว ' + mins(nowMs() - cs) + ' นาที · แจ้งแล้ว ' + sim(p).filter((t) => t >= cs).length + ' ครั้ง</div>' : '';
+  const acts = p.pr ? '' : '<div class="acts"><button class="' + (s === 'due' ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล' + (p.fols.length ? ' (' + p.fols.length + ')' : '') + '</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผลแล้ว</button></div>';
+  return '<div class="card ' + s + (isHl ? ' hl' : '') + '" data-card="' + esc(p.id) + '">' +
+    '<div class="row"><span class="q">คิว ' + p.queue + '</span>' + pill(p) + '</div>' +
+    '<div class="row"><span class="hn mono">HN ' + esc(p.hn) + '</span><span class="q">รอ ' + dur(p.wait) + '</span></div>' + resp +
+    (isHl && hlMode ? '<div class="hint">กดปุ่ม “ตามผล” เมื่อคุณตามผลรายนี้แล้ว</div>' : '') +
+    '<div class="latest">ล่าสุด <span class="mono">' + fmt(last.t) + '</span> · ' + esc(last.txt.split(' · ')[0].replace(/\(.*$/, '')) + '</div>' + acts +
+    '<button class="histbtn" data-hist="' + esc(p.id) + '">' + (open ? 'ซ่อนประวัติ ▲' : 'ประวัติเวลา (' + ev.length + ') ▼') + '</button>' +
+    (open ? '<div class="hist">' + ev.slice().reverse().map((e) => '<span class="mono ' + (e.sys ? 'sys' : '') + '">' + fmt(e.t) + '</span><span class="' + (e.sys ? 'sys' : '') + '">' + esc(e.txt) + '</span>').join('') + '</div>' : '') + '</div>';
+}
+
+/* ---------- เข้าสู่ระบบ ---------- */
+async function init() {
+  render();
+  if (CFG.liffId && window.liff) {
+    try {
+      await liff.init({ liffId: CFG.liffId });
+      if (liff.isLoggedIn()) { mode = 'line'; }
+    } catch (e) { /* ใช้รหัสแผนกแทน */ }
+  }
+  if (mode) await load(true);
+  if (hl) { const p = snap.patients.filter((x) => x.hn === hl && !x.pr)[0]; if (p) tab = stateOf(p); }
+  render();
+}
+function loginUI() {
+  const lineBtn = (CFG.liffId && window.liff) ? '<button class="primary" id="lineLogin">เข้าสู่ระบบด้วย LINE</button><div class="who">หรือใช้รหัสแผนก</div>' : '';
+  $app.innerHTML = '<div class="login"><h1>LabAlert อายุรกรรม</h1>' + lineBtn +
+    '<b>ใส่รหัสแผนก</b><div class="dots">' + [0, 1, 2, 3].map((i) => '<i class="' + (i < pin.length ? 'on' : '') + '"></i>').join('') + '</div>' +
+    '<div class="err">' + esc(pinErr) + '</div>' +
+    '<div class="pad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((k) => k === '' ? '<span></span>' : '<button data-pin="' + k + '">' + k + '</button>').join('') + '</div>' +
+    '<label class="who" for="nick">ชื่อเล่น (ไม่บังคับ ใช้บันทึกว่าใครกด)</label><input id="nick" maxlength="30" value="' + esc(store.get('nick') || '') + '" style="font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:220px"></div>';
+}
+
+/* ---------- แสดงผล ---------- */
+function render() {
+  if (!mode) return loginUI();
+  const admin = isAdmin();
+  const g = { due: [], wait: [], done: [] };
+  snap.patients.forEach((p) => g[stateOf(p)].push(p));
+  g.due.sort((a, b) => (cycleStart(a) || 0) - (cycleStart(b) || 0));           // รอนานสุดอยู่บน
+  g.wait.sort((a, b) => (a.fols.length ? a.next : dueAt(a)) - (b.fols.length ? b.next : dueAt(b))); // ผลควรออกก่อนอยู่บน
+  g.done.sort((a, b) => b.pr - a.pr);
+  const L = [['due', 'ครบเวลา'], ['wait', 'รอผล'], ['done', 'เสร็จสิ้น']];
+  const empty = { due: 'ไม่มีรายการที่ครบเวลา', wait: 'ไม่มีรายการที่รอผล กด “สแกน” เพื่อเพิ่มผู้ป่วย', done: 'ยังไม่มีรายการที่พิมพ์ผลแล้ว' }[tab];
+  $app.innerHTML =
+    '<header><div><h1>คิวติดตามผล Lab</h1><div class="who">' + (mode === 'line' ? 'เข้าด้วย LINE' : 'เข้าด้วยรหัสแผนก') + ' · <span class="mono">' + fmt(nowMs()) + '</span></div></div></header>' +
+    '<div class="stabs" role="tablist">' + L.map(([k, l]) => '<button class="stab ' + k + '" role="tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '"><b class="mono">' + g[k].length + '</b>' + l + '</button>').join('') + '</div>' +
+    (g[tab].length ? '<div class="grid">' + g[tab].map((p) => card(p, admin)).join('') + '</div>' : '<div class="empty">' + empty + '</div>') +
+    '<button class="primary fab" data-act="scan">สแกน Barcode / QR</button>' + (scan ? scanSheet() : '');
+  if (hl) { const el = document.querySelector('.card.hl'); if (el) el.scrollIntoView({ block: 'center' }); }
+}
+function scanWait() { return scan.wait === 'custom' ? Math.max(5, +scan.custom || 0) : scan.wait; }
+function scanSheet() {
+  const chips = [[45, '45 นาที'], [60, '1 ชม.'], [90, '1.5 ชม.'], [120, '2 ชม.']].map(([m, l]) => '<button data-wait="' + m + '" class="' + (scan.wait === m ? 'sel' : '') + '">' + l + '</button>').join('') +
+    '<button data-wait="custom" class="' + (scan.wait === 'custom' ? 'sel' : '') + '">กำหนดเอง</button>';
+  return '<div class="sheet-bg"><div class="sheet"><div class="row"><b>เพิ่มผู้ป่วยเข้าคิว</b><button data-act="closescan">ปิด</button></div>' +
+    '<div id="reader"></div><button data-act="camera">เปิดกล้องสแกน</button>' +
+    '<label for="scanHn">HN</label><input id="scanHn" class="mono" inputmode="text" autocomplete="off" value="' + esc(scan.hn) + '">' +
+    '<div class="chips" role="group" aria-label="เวลาที่ให้แจ้งเตือน">' + chips + '</div>' +
+    (scan.wait === 'custom' ? '<label for="scanCustom">กำหนดเอง (นาที)</label><input id="scanCustom" type="number" min="5" step="5" value="' + esc(scan.custom) + '">' : '') +
+    '<div class="who" id="scanDue">แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')</div>' +
+    '<button class="primary" data-act="savescan" style="padding:11px">บันทึกคิว</button></div></div>';
+}
+
+/* ---------- ข้อมูล ---------- */
+async function load(quiet) {
+  try { setSnap(await call('apiList', auth())); }
+  catch (e) { if (!quiet) toast(e.message); if (mode === 'app') { mode = null; appToken = null; } }
+}
+window.addEventListener('resize', () => { if (mode && !scan) render(); });
+function schedule() { clearInterval(timer); timer = setInterval(() => { if (mode && !scan && !busy) load(true).then(render); else if (mode && !scan) render(); }, 20000); }
+async function doCall(fn, ...args) {
+  if (busy) return; busy = true;
+  try { setSnap(await call(fn, auth(), ...args)); return true; }
+  catch (e) { toast(e.message); return false; }
+  finally { busy = false; }
+}
+
+/* ---------- สแกน ---------- */
+async function startCamera() {
+  if (window.liff && mode === 'line' && liff.isInClient() && liff.scanCodeV2) {
+    try { const r = await liff.scanCodeV2(); if (r && r.value) { scan.hn = r.value.trim(); render(); } return; } catch (e) { /* ใช้กล้องเว็บแทน */ }
+  }
+  if (!window.Html5Qrcode) { toast('เปิดกล้องไม่ได้ ใส่ HN ด้วยมือแทน'); return; }
+  try {
+    const h = new Html5Qrcode('reader'); window._h = h;
+    await h.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 240, height: 140 } },
+      (txt) => { scan.hn = String(txt).trim(); h.stop().catch(() => {}); render(); }, () => {});
+  } catch (e) { toast('เปิดกล้องไม่ได้ ใส่ HN ด้วยมือแทน'); }
+}
+
+/* ---------- เหตุการณ์ ---------- */
+document.addEventListener('input', (e) => {
+  if (!scan) return;
+  if (e.target.id === 'scanHn') scan.hn = e.target.value;
+  if (e.target.id === 'scanCustom') { scan.custom = e.target.value; document.getElementById('scanDue').innerHTML = 'แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')'; }
+  if (e.target.id === 'nick') store.set('nick', e.target.value);
+});
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
+  if (b.id === 'lineLogin') { try { liff.login(); } catch (x) { toast('เปิดผ่านแอป LINE เพื่อเข้าสู่ระบบ'); } return; }
+  if (d.pin != null) {
+    pinErr = ''; if (d.pin === '⌫') pin = pin.slice(0, -1); else if (pin.length < 4) pin += d.pin;
+    if (pin.length === 4) {
+      const p = pin; pin = '';
+      try { appToken = (await call('apiLogin', p)).token; mode = 'app'; await load(true); schedule(); if (CFG.mode === 'scan') scan = { hn: '', wait: 45, custom: 30 }; } catch (x) { pinErr = x.message; }
+    }
+    render(); return;
+  }
+  if (d.tab) { tab = d.tab; render(); return; }
+  if (d.wait) { scan.wait = d.wait === 'custom' ? 'custom' : +d.wait; render(); return; }
+  if (d.act === 'scan') { scan = { hn: '', wait: 45, custom: 30 }; render(); return; }
+  if (d.act === 'closescan') { try { if (window._h) await window._h.stop(); } catch (x) {} scan = null; render(); return; }
+  if (d.act === 'camera') { await startCamera(); return; }
+  if (d.act === 'savescan') {
+    const hn = scan.hn.trim(), w = scanWait();
+    if (!/^[0-9A-Za-z\-\/]{3,20}$/.test(hn)) { toast('รูปแบบ HN ไม่ถูกต้อง'); return; }
+    if (await doCall('apiAdd', hn, w)) { scan = null; hl = ''; toast('เพิ่ม HN ' + hn + ' แล้ว แจ้งเตือน ' + fmt(nowMs() + w * 60000)); render(); }
+    return;
+  }
+  if (d.do === 'follow') { if (await doCall('apiFollow', d.id)) { hlMode = ''; hl = ''; toast('บันทึกตามผลแล้ว ระบบแจ้งอีกครั้งใน 10 นาที'); render(); } return; }
+  if (d.do === 'print') { if (await doCall('apiPrint', d.id)) { toast('บันทึกพิมพ์ผลแล้ว ย้ายไปแท็บเสร็จสิ้น'); render(); } return; }
+  if (d.hist) { openH[d.hist] = !openH[d.hist]; render(); return; }
+});
+init().then(() => { if (mode) { schedule(); if (CFG.mode === 'scan') { scan = { hn: '', wait: 45, custom: 30 }; render(); } } });
+</script>
+</body>
+</html>
