@@ -64,6 +64,7 @@ button:disabled{opacity:.45;cursor:default}
 .chip.wait{background:var(--warn-soft);color:var(--warn)}.chip.done{background:var(--ok-soft);color:var(--ok)}.chip.stale{background:var(--sunk);color:var(--muted)}
 @keyframes blink{50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.chip.due{animation:none;outline:2px solid var(--crit)}}
+.scanning .chip.due{animation:none}   /* เปิดแผ่นสแกนอยู่: หยุดกระพริบด้านหลัง ไม่ให้หน้าจอวูบตอนใช้กล้อง */
 .hist{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;font-size:.7rem;border-top:1px dashed var(--line);margin-top:2px;padding-top:3px}
 .hist .sys{color:var(--muted)}
 .hint{background:var(--warn-soft);color:var(--warn);border-radius:7px;padding:4px 8px;font-size:.75rem;display:flex;justify-content:space-between;align-items:center;gap:6px}
@@ -117,6 +118,7 @@ button:disabled{opacity:.45;cursor:default}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
 /* ---------- ตั้งค่า ---------- */
+const APP_VERSION = '2026-11-09.3';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
 const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
@@ -291,7 +293,7 @@ function loginUI() {
     '<button class="field ' + (lg.field === 'pin' ? 'on' : '') + '" data-field="pin"><span class="lbl">รหัสผ่าน</span><span class="val">' + '●'.repeat(lg.pin.length) + '</span></button>' +
     '<div class="err">' + esc(lg.err) + '</div>' + padHTML(false) +
     '<button class="primary big" data-act="login"' + (lg.busy ? ' disabled' : '') + '>' + (lg.busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ') + '</button>' + lineBtn +
-    (HAS_EMBEDDED ? '' : '<button class="ghost" data-api="reset" style="font-size:.72rem">เปลี่ยนการเชื่อมต่อระบบ</button>') + '</div>';
+    (HAS_EMBEDDED ? '' : '<button class="ghost" data-api="reset" style="font-size:.72rem">เปลี่ยนการเชื่อมต่อระบบ</button>') + '<div class="muted" style="font-size:.68rem">เวอร์ชัน ' + APP_VERSION + '</div></div>';
 }
 function changeUI() {
   $app.innerHTML = '<div class="login"><h1>ตั้งรหัสผ่านใหม่</h1><div class="muted">รหัสพนักงาน ' + esc(me ? me.code : '') + ' · ตัวเลข 6–8 หลัก จำไว้ใช้เข้าครั้งต่อไป</div>' +
@@ -347,6 +349,7 @@ function padInput(k) {
 
 /* ---------- แสดงผลหลัก ---------- */
 function render() {
+  document.body.classList.toggle('scanning', !!scan);
   if (pendingApi) return confirmApiUI();
   if (!API) return setupUI();
   if (!mode) return loginUI();
@@ -413,7 +416,7 @@ async function startCamera() {
       (txt) => {
         txt = String(txt).trim();
         if (txt === last) n++; else { last = txt; n = 1; }
-        if (n >= 2) { scan.hn = normHN(txt); h.stop().catch(() => {}); toast('อ่านได้ ' + normHN(txt) + ' ตรวจให้ตรงกับสติกเกอร์'); render(); }
+        if (n >= 2) { scan.hn = normHN(txt); Promise.resolve(h.stop()).catch(() => {}).then(() => { toast('อ่านได้ ' + normHN(txt) + ' ตรวจให้ตรงกับสติกเกอร์'); render(); }); }
       }, () => {});
   } catch (e) { toast('เปิดกล้องสดไม่ได้ (' + String((e && e.message) || e).slice(0, 60) + ') ลองกด “ถ่ายรูป” แทน'); }
 }
