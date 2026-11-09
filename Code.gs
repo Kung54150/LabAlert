@@ -106,7 +106,7 @@ function apiConfig() { return { liffId: prop_('LIFF_ID') }; }
 function apiLogin(pin) {
   const cache = CacheService.getScriptCache();
   const fails = +cache.get('fails') || 0;
-  if (fails >= 5) throw new Error('ใส่รหัสผิดหลายครั้ง รอ 10 นาทีแล้วลองใหม่');
+  if (fails >= 10) throw new Error('ใส่รหัสผิดหลายครั้ง รอ 10 นาทีแล้วลองใหม่');
   const real = prop_('DEPT_PIN');
   if (!real) throw new Error('ยังไม่ได้ตั้งรหัสแผนก (DEPT_PIN)');
   if (String(pin) !== real) {
