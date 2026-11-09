@@ -445,6 +445,29 @@ function testAlert() {
   return 'ส่งตัวอย่างข้อความแจ้งเตือน 2 กล่องเข้ากลุ่มแล้ว';
 }
 
+/**
+ * ดูโควตาข้อความ LINE ของเดือนนี้: โควตาทั้งหมด จำนวนที่ใช้ไปแล้ว และที่เหลือ (ถามจาก LINE ตรง ๆ ผ่าน token)
+ * ผลลัพธ์อยู่ในบันทึกการดำเนินการ (Execution log) และชีต Log แถว line_quota ไม่แสดงหรือเก็บ token
+ */
+function lineQuota() {
+  assertOwner_();
+  const token = prop_('LINE_TOKEN');
+  if (!token) throw new Error('ยังไม่ได้ตั้ง LINE_TOKEN');
+  const get = (path) => {
+    const r = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/' + path, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) throw new Error('LINE ' + r.getResponseCode() + ' ' + r.getContentText());
+    return JSON.parse(r.getContentText());
+  };
+  const q = get('quota'), c = get('quota/consumption');
+  const used = +c.totalUsage || 0;
+  const msg = q.type === 'limited'
+    ? 'โควตาเดือนนี้ ' + q.value + ' ข้อความ ใช้ไปแล้ว ' + used + ' เหลือ ' + Math.max(0, q.value - used)
+    : 'ไม่จำกัดโควตา ใช้ไปแล้ว ' + used + ' ข้อความ';
+  Logger.log(msg);
+  log_('system', 'line_quota', msg);
+  return msg;
+}
+
 /** ทดสอบส่งข้อความเข้ากลุ่ม */
 function testPush() {
   assertOwner_();
