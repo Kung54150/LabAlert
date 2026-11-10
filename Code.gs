@@ -141,7 +141,7 @@ function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (Array.isArray(req.events)) return json_(lineSetupEvents_(req.events));   // เหตุการณ์จาก LINE Webhook (ใช้ตอนหา ID กลุ่ม)
-    const table = { apiLogin: apiLogin, apiLogout: apiLogout, apiChangePin: apiChangePin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint };
+    const table = { apiLogin: apiLogin, apiLogout: apiLogout, apiChangePin: apiChangePin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint, apiExport: apiExport };
     const fn = Object.prototype.hasOwnProperty.call(table, req.fn) ? table[req.fn] : null;
     if (!fn) throw new Error('ไม่รู้จักคำสั่ง');
     return json_({ ok: true, data: fn.apply(null, Array.isArray(req.args) ? req.args : []) });
@@ -320,6 +320,41 @@ function snapshot_(day) {
     }))
     .sort((a, b) => (a.reg + a.wait * 60000) - (b.reg + b.wait * 60000));
   return { now: now, today: today, day: day, patients: list };
+}
+
+/** Admin ดาวน์โหลดข้อมูลเป็น CSV: 1 แถวต่อ 1 เคส กรองตามวันที่ลงทะเบียน from-to (yyyyMMdd) */
+function csvCell_(v) {
+  let t = v == null ? '' : String(v);
+  if (/^[=+\-@\t\r]/.test(t) && !/^-?\d+([.:]\d+)*$/.test(t)) t = "'" + t;   // กันสูตรใน Excel/Sheets
+  return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+function apiExport(auth, from, to) {
+  const w = who_(auth);
+  if (w.role !== 'Admin') throw new Error('เฉพาะ Admin เท่านั้น');
+  from = /^\d{8}$/.test(String(from || '')) ? String(from) : dayStr_(Date.now());
+  to = /^\d{8}$/.test(String(to || '')) ? String(to) : from;
+  if (to < from) { const t = from; from = to; to = t; }
+  const stamp = (ms) => (ms ? Utilities.formatDate(new Date(ms), 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss') : '');
+  const byP = {};
+  readAll_('FollowUps').forEach((f) => { (byP[f.patient_id] = byP[f.patient_id] || []).push({ n: +f.n, at: ms_(f.at), by: f.by }); });
+  const rows = readAll_('Patients').filter((r) => r.id && dayStr_(ms_(r.registered_at)) >= from && dayStr_(ms_(r.registered_at)) <= to)
+    .sort((a, b) => ms_(a.registered_at) - ms_(b.registered_at));
+  if (rows.length > 20000) throw new Error('ข้อมูลมากเกินไป เลือกช่วงวันที่สั้นลง');
+  rows.forEach((r) => { r._f = (byP[r.id] || []).sort((a, b) => a.n - b.n); });
+  const maxF = rows.reduce((m, r) => Math.max(m, r._f.length), 0);
+  const head = ['วันที่', 'คิว', 'HN', 'ลงทะเบียน', 'รอ(นาที)', 'ครบกำหนด', 'ผู้ลงทะเบียน', 'จำนวนครั้งที่ตามผล'];
+  for (let i = 1; i <= maxF; i++) head.push('ตามผลครั้งที่ ' + i, 'ผู้ตามผลครั้งที่ ' + i);
+  head.push('พิมพ์ผล', 'ผู้พิมพ์ผล', 'จำนวนแจ้งในแอป', 'จำนวนข้อความ LINE');
+  const out = [head];
+  rows.forEach((r) => {
+    const reg = ms_(r.registered_at);
+    const line = [Utilities.formatDate(new Date(reg), 'Asia/Bangkok', 'yyyy-MM-dd'), r.queue, r.hn, stamp(reg), r.wait_min, stamp(reg + (+r.wait_min) * 60000), r.registered_by, r._f.length];
+    for (let i = 0; i < maxF; i++) line.push(r._f[i] ? stamp(r._f[i].at) : '', r._f[i] ? r._f[i].by : '');
+    line.push(stamp(ms_(r.printed_at)), r.printed_by, +r.alert_count || 0, +r.line_count || 0);
+    out.push(line);
+  });
+  log_(w.name, 'export', from + '-' + to + ' ' + rows.length + ' rows');
+  return { name: 'labalert_' + from + (to !== from ? '-' + to : '') + '.csv', count: rows.length, csv: out.map((l) => l.map(csvCell_).join(',')).join('\r\n') };
 }
 
 function apiList(auth, day) {
