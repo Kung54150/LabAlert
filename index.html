@@ -510,12 +510,29 @@ async function startCameraInner() {
     const h = new Html5Qrcode('reader', { formatsToSupport: formats.length ? formats : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true }, verbose: false });
     window._h = h;
     let last = '', n = 0;   // ต้องอ่านได้ค่าเดียวกัน 2 ครั้งติดกันจึงยอมรับ
-    await h.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 300, height: 120 } },
-      (txt) => {
+    // Android บางรุ่นเมื่อใช้ facingMode อย่างเดียวจะได้เลนส์ไวด์/มาโครที่โฟกัสไม่ได้ จึงเลือกกล้องหลักหลังเครื่องเอง
+    let cam = { facingMode: 'environment' };
+    try {
+      const cams = await Html5Qrcode.getCameras();
+      const backs = (cams || []).filter((c) => /back|rear|environment|หลัง/i.test(c.label || ''));
+      const bad = /wide|ultra|macro|tele|depth|mono|0\.5|zoom/i;
+      const main = backs.find((c) => !bad.test(c.label)) || backs[0];
+      if (main && main.id) cam = { deviceId: { exact: main.id } };
+    } catch (e) { /* ใช้ facingMode ตามเดิม */ }
+    const cfg = { fps: 10, qrbox: { width: 300, height: 120 }, videoConstraints: { ...cam, width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: 'continuous' }] } };
+    try { await h.start(cam.deviceId ? cam.deviceId.exact : cam, cfg, onScan, () => {}); }
+    catch (e) { try { await h.stop(); } catch (_) {} await h.start({ facingMode: 'environment' }, { fps: 10, qrbox: cfg.qrbox }, onScan, () => {}); }
+    // ขอให้โฟกัสต่อเนื่องหลังกล้องเปิด (ถ้าเครื่องรองรับ)
+    try {
+      const track = document.querySelector('#reader video')?.srcObject?.getVideoTracks?.()[0];
+      const caps = track && track.getCapabilities ? track.getCapabilities() : {};
+      if (track && caps.focusMode && caps.focusMode.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+    } catch (e) { /* ข้ามได้ */ }
+    function onScan(txt) {
         txt = String(txt).trim();
         if (txt === last) n++; else { last = txt; n = 1; }
         if (n >= 2) { scan.hn = normHN(txt); Promise.resolve(h.stop()).catch(() => {}).then(() => { toast('อ่านได้ ' + normHN(txt) + ' ตรวจให้ตรงกับสติกเกอร์'); render(); }); }
-      }, () => {});
+    }
   } catch (e) { toast('เปิดกล้องสดไม่ได้ (' + String((e && e.message) || e).slice(0, 60) + ') ลองกด “ถ่ายรูป” แทน'); }
 }
 async function scanImage(file) { await withBusy(() => scanImageInner(file)); }
