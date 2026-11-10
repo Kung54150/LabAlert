@@ -10,6 +10,7 @@
  *   LINE_SETUP        (ชั่วคราว) ตั้งเป็น 1 ตอนหา ID กลุ่ม แล้วลบทิ้ง
  *   LIFF_ID           (ไม่บังคับ) LIFF ID ถ้าอยากให้ปุ่มเปิดในแอป LINE
  *   LOGIN_CHANNEL_ID  Channel ID ของ LINE Login channel ที่ LIFF สังกัดอยู่
+ *   FCM_SERVICE_ACCOUNT  เนื้อไฟล์ JSON ของ Firebase service account (ใช้ส่งแจ้งเตือนพุชถึงมือถือ/PC แม้ปิดแอป) ห้ามวางในแชทหรือ GitHub
  *   SHEET_ID          (ไม่บังคับ) ถ้าไม่ได้ผูกสคริปต์กับชีต
  */
 const REPEAT_MIN = 10;          // รอบแจ้งเตือนในแอป (เสียง/ป้ายกระพริบ) ซ้ำเมื่อไม่มีใครตอบ ใช้ฟรีไม่จำกัด
@@ -22,10 +23,11 @@ const QUOTA_RESERVE = 40;          // โควตา LINE ที่เหลื
 const STALE_HOURS = 24;         // รายการที่ยังไม่พิมพ์ผลเกินกี่ชั่วโมงให้ย้ายไปแท็บเสร็จสิ้นของวันที่ลงทะเบียน และหยุดแจ้งเตือน
 const SCHEMA = {
   Patients: ['id', 'queue', 'hn', 'registered_at', 'wait_min', 'next_alert_at', 'alert_count',
-             'last_alert_at', 'registered_by', 'printed_at', 'printed_by', 'line_count', 'last_line_at'],
+             'last_alert_at', 'registered_by', 'printed_at', 'printed_by', 'line_count', 'last_line_at', 'fcm_at'],
   FollowUps: ['id', 'patient_id', 'n', 'at', 'by', 'via', 'ext_min'],
   Staff: ['code', 'name', 'role', 'pin_hash', 'salt', 'temp_pin', 'updated_at'],
   Sessions: ['hash', 'code', 'role', 'must', 'created_at', 'expires_at'],
+  Devices: ['token', 'code', 'created_at', 'last_push_at'],
   Log: ['at', 'who', 'action', 'detail'],
 };
 
@@ -141,7 +143,7 @@ function doPost(e) {
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (Array.isArray(req.events)) return json_(lineSetupEvents_(req.events));   // เหตุการณ์จาก LINE Webhook (ใช้ตอนหา ID กลุ่ม)
-    const table = { apiLogin: apiLogin, apiLogout: apiLogout, apiChangePin: apiChangePin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint, apiExport: apiExport };
+    const table = { apiLogin: apiLogin, apiLogout: apiLogout, apiChangePin: apiChangePin, apiConfig: apiConfig, apiList: apiList, apiAdd: apiAdd, apiFollow: apiFollow, apiPrint: apiPrint, apiExport: apiExport, apiRegisterPush: apiRegisterPush };
     const fn = Object.prototype.hasOwnProperty.call(table, req.fn) ? table[req.fn] : null;
     if (!fn) throw new Error('ไม่รู้จักคำสั่ง');
     return json_({ ok: true, data: fn.apply(null, Array.isArray(req.args) ? req.args : []) });
@@ -250,8 +252,9 @@ function session_(auth) {
 }
 
 /** ออกจากระบบ: ลบ session ฝั่งเซิร์ฟเวอร์ (เครื่องนี้เท่านั้น) */
-function apiLogout(auth) {
+function apiLogout(auth, pushToken) {
   if (auth && auth.type === 'app' && auth.token) {
+    if (pushToken) removeDevice_(String(pushToken));
     CacheService.getScriptCache().remove('s_' + auth.token);
     withLock_(() => { const row = sessionRow_(auth.token); if (row) sheet_('Sessions').deleteRow(row._row); });
   }
@@ -426,6 +429,79 @@ function apiPrint(auth, id) {
   });
 }
 
+/* ---------- แจ้งเตือนพุช (Firebase Cloud Messaging) ---------- */
+/** เครื่องลงทะเบียนรับพุช: เก็บ token ในชีต Devices (1 token ต่อแถว) */
+function apiRegisterPush(auth, token) {
+  const who = who_(auth);
+  token = String(token || '');
+  if (token.length < 50 || token.length > 4096) throw new Error('token ไม่ถูกต้อง');
+  return withLock_(() => {
+    const row = readAll_('Devices').filter((d) => d.token === token)[0];
+    if (row) update_('Devices', row._row, { code: who.code });
+    else append_('Devices', { token: token, code: who.code, created_at: new Date() });
+    return { ok: true };
+  });
+}
+function removeDevice_(token) {
+  withLock_(() => { const row = readAll_('Devices').filter((d) => d.token === token)[0]; if (row) sheet_('Devices').deleteRow(row._row); });
+}
+/** access token ของ service account (เก็บแคช 50 นาที) */
+function fcmAccessToken_() {
+  const cache = CacheService.getScriptCache(), hit = cache.get('fcm_at');
+  if (hit) return hit;
+  const sa = JSON.parse(prop_('FCM_SERVICE_ACCOUNT'));
+  const b64 = (o) => Utilities.base64EncodeWebSafe(typeof o === 'string' ? o : JSON.stringify(o)).replace(/=+$/, '');
+  const now = Math.floor(Date.now() / 1000);
+  const head = b64({ alg: 'RS256', typ: 'JWT' });
+  const claim = b64({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/firebase.messaging', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 });
+  const sig = Utilities.base64EncodeWebSafe(Utilities.computeRsaSha256Signature(head + '.' + claim, sa.private_key)).replace(/=+$/, '');
+  const r = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', { method: 'post', payload: { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: head + '.' + claim + '.' + sig }, muteHttpExceptions: true });
+  const j = JSON.parse(r.getContentText() || '{}');
+  if (!j.access_token) throw new Error('ขอ token FCM ไม่สำเร็จ: ' + String(j.error_description || j.error || r.getResponseCode()));
+  cache.put('fcm_at', j.access_token, 3000);
+  return j.access_token;
+}
+/** ส่งพุชถึงทุกเครื่องที่ลงทะเบียน (ล้มเหลวไม่กระทบ LINE) token ที่หมดอายุจะถูกลบ */
+function fcmSend_(msgs) {
+  if (!prop_('FCM_SERVICE_ACCOUNT') || !msgs.length) return;
+  const devices = readAll_('Devices').filter((d) => d.token);
+  if (!devices.length) return;
+  const sa = JSON.parse(prop_('FCM_SERVICE_ACCOUNT')), access = fcmAccessToken_();
+  const url = 'https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send';
+  const reqs = [], owners = [];
+  msgs.forEach((m) => devices.forEach((d) => {
+    reqs.push({ url: url, method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + access }, muteHttpExceptions: true,
+      payload: JSON.stringify({ message: { token: d.token, data: { id: String(m.id), hn: String(m.hn), title: 'LabAlert · HN ' + m.hn, body: 'ครบเวลา ยังไม่มีผู้ตามผล' },
+        android: { priority: 'HIGH', ttl: '600s' }, webpush: { headers: { Urgency: 'high', TTL: '600' } } } }) });
+    owners.push(d);
+  }));
+  const dead = {};
+  UrlFetchApp.fetchAll(reqs).forEach((r, i) => {
+    const c = r.getResponseCode();
+    if (c === 404 || c === 410 || (c === 400 && /UNREGISTERED|INVALID_ARGUMENT/.test(r.getContentText()))) dead[owners[i].token] = true;
+    else if (c >= 300) log_('system', 'fcm_error', c + ' ' + r.getContentText().slice(0, 200));
+  });
+  Object.keys(dead).forEach(removeDevice_);
+}
+/** รายที่ถึงรอบแจ้งเตือนใหม่ (ครบเวลา/ซ้ำทุก REPEAT_MIN) และยังไม่มีใครตามผล: ส่งพุชรอบละครั้ง */
+function fcmAlerts_(rows, folMap, now) {
+  if (!prop_('FCM_SERVICE_ACCOUNT')) return;
+  const msgs = [], marks = [];
+  rows.forEach((r) => {
+    const due = ms_(r.registered_at) + (+r.wait_min) * 60000;
+    const fols = folMap[r.id] || [], lf = fols.length ? fols[fols.length - 1] : 0;
+    const cycle = simAlerts_(due, fols, now, 0).filter((t) => t > lf);
+    if (!cycle.length) return;
+    const latest = cycle[cycle.length - 1];
+    if (latest <= ms_(r.fcm_at) || now - latest > 5 * 60000) return;   // รอบนี้ส่งไปแล้ว หรือเก่าเกินไป (เช่น ตัวตั้งเวลาหยุดชั่วคราว)
+    msgs.push({ id: r.id, hn: String(r.hn) });
+    marks.push({ r: r, at: new Date(latest) });
+  });
+  if (!msgs.length) return;
+  fcmSend_(msgs);
+  marks.forEach((m) => update_('Patients', m.r._row, { fcm_at: m.at }));
+}
+
 /* ---------- แจ้งเตือนทาง LINE (ตัวตั้งเวลาเรียกทุก 1 นาที) ---------- */
 /** ตารางเวลาแจ้งเตือนในแอป (เหมือน sim ในหน้าเว็บ): ครบเวลาแล้วแจ้งทุก REPEAT_MIN ถ้ามีคนตามผล เริ่มนับรอบใหม่ แต่ไม่เร็วกว่าเวลาครบกำหนด */
 function simAlerts_(dueMs, folMs, nowMs, printedMs) {
@@ -487,13 +563,14 @@ function checkAlerts() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return;
   try {
-    if (!(prop_('LINE_TOKEN') && prop_('GROUP_ID'))) return;
     const now = Date.now();
     const rows = readAll_('Patients').filter((r) => r.id && !r.printed_at && now - ms_(r.registered_at) < STALE_HOURS * 3600e3);
     if (!rows.length) return;
     const folMap = {};
     readAll_('FollowUps').forEach((f) => { (folMap[f.patient_id] = folMap[f.patient_id] || []).push(ms_(f.at)); });
     Object.keys(folMap).forEach((k) => folMap[k].sort((a, b) => a - b));
+    try { fcmAlerts_(rows, folMap, now); } catch (err) { log_('system', 'fcm_error', String(err).slice(0, 200)); }
+    if (!(prop_('LINE_TOKEN') && prop_('GROUP_ID'))) return;
     const todo = lineEscalations_(rows, folMap, now);
     const quota = lineQuotaStatus_();   // ถามที่นี่เพื่อให้แอปแสดงโควตาที่เหลืออัปเดตอยู่เสมอ
     if (!todo.length) return;

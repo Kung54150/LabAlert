@@ -128,7 +128,7 @@ button:disabled{opacity:.45;cursor:default}
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 /* ---------- ตั้งค่า ---------- */
-const APP_VERSION = '2026-11-10.6';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
+const APP_VERSION = '2026-11-10.7';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
 const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
@@ -453,7 +453,7 @@ async function afterLogin() {
   tab = null; doneDay = null;
   await load(true); checkAlertFeedback();
   if (hl) { const p = snap.patients.filter((x) => normHN(x.hn) === normHN(hl) && !x.pr)[0]; if (p) tab = cat(p); }
-  schedule();
+  schedule(); enablePush();
   if (CFG.mode === 'scan') scan = { hn: CFG.hn || '', wait: 45, custom: 30, pad: false };
 }
 function padInput(k) {
@@ -525,6 +525,24 @@ function updateScanDue() {
 async function lineQr() {
   try { const r = await liff.scanCodeV2(); if (r && r.value) { scan.hn = normHN(r.value); render(); } }
   catch (e) { toast('สแกนด้วย LINE ไม่ได้ ใช้ “สแกนกล้อง” แทน'); }
+}
+function loadScript(src) { return new Promise((ok, no) => { const el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = no; document.head.appendChild(el); }); }
+// ลงทะเบียนรับพุช (FCM) ให้เครื่องนี้ ต้องอนุญาตการแจ้งเตือนแล้ว; ไม่รองรับ (เช่น ในแอป LINE) ก็ข้ามไป
+async function enablePush() {
+  const C = window.LABALERT_CONFIG || {};
+  if (!C.firebase || !C.vapidKey || !mode || mustChange || !notifyOK()) return;
+  try {
+    const base = 'https://www.gstatic.com/firebasejs/10.12.2/';
+    if (!window.firebase) { await loadScript(base + 'firebase-app-compat.js'); await loadScript(base + 'firebase-messaging-compat.js'); }
+    if (!firebase.messaging.isSupported()) return;
+    if (!firebase.apps.length) firebase.initializeApp(C.firebase);
+    const reg = await navigator.serviceWorker.ready;
+    const token = await firebase.messaging().getToken({ vapidKey: C.vapidKey, serviceWorkerRegistration: reg });
+    if (!token) return;
+    const mark = token + '|' + (me ? me.code : '');
+    if (store.get('fcmMark') !== mark) { await qcall('apiRegisterPush', auth(), token); store.set('fcmMark', mark); }
+    store.set('fcmToken', token);
+  } catch (e) { /* ไม่รองรับพุชบนเครื่องนี้ */ }
 }
 let qrP = null;
 function loadQr() {   // โหลดตัวอ่านบาร์โค้ดเมื่อกดสแกนครั้งแรกเท่านั้น ไม่หน่วงตอนเปิดแอป
@@ -630,7 +648,7 @@ async function init() {
 }
 async function boot() {
   await withBusy(init);
-  if (mode && !mustChange) { schedule(); if (CFG.mode === 'scan') { scan = { hn: CFG.hn || '', wait: 45, custom: 30, pad: false }; render(); } }
+  if (mode && !mustChange) { schedule(); enablePush(); if (CFG.mode === 'scan') { scan = { hn: CFG.hn || '', wait: 45, custom: 30, pad: false }; render(); } }
 }
 
 /* ---------- เหตุการณ์ ---------- */
@@ -642,7 +660,7 @@ document.addEventListener('click', async (e) => {
   const d = b.dataset;
   unlockAudio();   // มือถือต้องมีการแตะก่อนจึงเล่นเสียงได้
   if (d.act === 'sound') {
-    if ('Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (x) {} soundOn = true; store.set('sound', '1'); beep(); toast('เปิดการแจ้งเตือนแล้ว'); render(); return; }
+    if ('Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (x) {} soundOn = true; store.set('sound', '1'); beep(); toast('เปิดการแจ้งเตือนแล้ว'); render(); enablePush(); return; }
     soundOn = !soundOn; store.set('sound', soundOn ? '1' : '0'); if (soundOn) beep(); toast(soundOn ? 'เปิดเสียงเตือน' : 'ปิดเสียงเตือน'); render(); return;
   }
   if (d.api) {
@@ -675,7 +693,7 @@ document.addEventListener('click', async (e) => {
     catch (x) { toast(x.message || 'ดาวน์โหลดไม่สำเร็จ'); }
     return;
   }
-  if (d.act === 'logout') { if (mode === 'app') call('apiLogout', auth()).catch(() => {}); localLogout(''); render(); return; }
+  if (d.act === 'logout') { if (mode === 'app') call('apiLogout', auth(), store.get('fcmToken') || '').catch(() => {}); store.set('fcmMark', ''); localLogout(''); render(); return; }
   if (d.tab) { tab = d.tab; if (tab === 'done') { doneDay = snap.today; await withBusy(() => load(true)); } render(); return; }   // เปิดแท็บเสร็จสิ้นให้ขึ้นวันที่ปัจจุบันเสมอ
   if (d.day) {
     doneDay = d.day === 'today' ? snap.today : shiftDay(doneDay, +d.day);
