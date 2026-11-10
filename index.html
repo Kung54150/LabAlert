@@ -128,7 +128,7 @@ button:disabled{opacity:.45;cursor:default}
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 /* ---------- ตั้งค่า ---------- */
-const APP_VERSION = '2026-11-10.7';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
+const APP_VERSION = '2026-11-10.8';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
 const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
@@ -251,7 +251,7 @@ let soundOn = store.get('sound') !== '0';
 let audioCtx = null, alertingIds = new Set(), lastBeepAt = 0, alertTimer = null;
 function unlockAudio() {
   try {
-    if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); }
+    if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) { audioCtx = new AC(); audioCtx.onstatechange = () => { if (mode && !scan && !mustChange) render(); }; } }   // ปลดล็อกเสียงแล้วให้ปุ่มกระดิ่งเปลี่ยนจากสีเตือนทันที
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
     if (window.speechSynthesis && !unlockAudio.sp) { unlockAudio.sp = true; const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); }   // ปลดล็อกเสียงพูดด้วยการแตะครั้งแรก
   } catch (e) { /* เบราว์เซอร์ไม่รองรับเสียง */ }
@@ -652,6 +652,7 @@ async function boot() {
 }
 
 /* ---------- เหตุการณ์ ---------- */
+['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, () => unlockAudio(), { passive: true }));   // แตะตรงไหนก็ปลดล็อกเสียงได้ ไม่ต้องกดปุ่มกระดิ่ง
 document.addEventListener('change', (e) => {
   if (expo && (e.target.id === 'expFrom' || e.target.id === 'expTo')) { const v = e.target.value.replace(/-/g, ''); if (/^\d{8}$/.test(v)) expo[e.target.id === 'expFrom' ? 'from' : 'to'] = v; }
   if (e.target.id === 'scanFile') scanImage(e.target.files[0]); });
