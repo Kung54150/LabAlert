@@ -128,7 +128,7 @@ button:disabled{opacity:.45;cursor:default}
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 /* ---------- ตั้งค่า ---------- */
-const APP_VERSION = '2026-11-10.3';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
+const APP_VERSION = '2026-11-10.4';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
 const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
@@ -258,11 +258,20 @@ function unlockAudio() {
 }
 const ALERT_MS = 3000;   // เสียงและการสั่นนานประมาณ 3 วินาที
 const VIBE = [900, 100, 900, 100, 900];   // รวมประมาณ 3 วินาที
+// เสียงพูดสดใสน่ารัก: เลือกเสียงผู้หญิงภาษาอังกฤษถ้ามี แล้วเพิ่มระดับเสียงสูง จังหวะกระชับ (หน้าตาเสียงขึ้นกับเครื่อง)
+function cuteVoice(u) {
+  u.lang = 'en-US'; u.pitch = 1.7; u.rate = 1.05; u.volume = 1;
+  try {
+    const vs = window.speechSynthesis.getVoices().filter((v) => /^en/i.test(v.lang));
+    const v = vs.find((x) => /samantha|zira|aria|jenny|female|google us english|google uk english female/i.test(x.name)) || vs.find((x) => /en[-_]US/i.test(x.lang));
+    if (v) u.voice = v;
+  } catch (e) {}
+}
 function speakAlert(n) {   // พูดว่า "Lab alert" n ครั้ง คืน true ถ้าเริ่มพูดได้
   try {
     const ss = window.speechSynthesis; if (!ss || !window.SpeechSynthesisUtterance) return false;
     ss.cancel();
-    for (let i = 0; i < n; i++) { const u = new SpeechSynthesisUtterance('Lab alert'); u.lang = 'en-US'; u.rate = 0.9; u.volume = 1; ss.speak(u); }
+    for (let i = 0; i < n; i++) { const u = new SpeechSynthesisUtterance('Lab alert'); cuteVoice(u); ss.speak(u); }
     return true;
   } catch (e) { return false; }
 }
