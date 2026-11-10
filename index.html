@@ -126,10 +126,9 @@ button:disabled{opacity:.45;cursor:default}
 <div class="busy" id="busy" hidden role="status" aria-live="polite" aria-label="กำลังโหลด"><div class="box"><div class="spin"></div></div></div>
 <script src="config.js"></script>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
 /* ---------- ตั้งค่า ---------- */
-const APP_VERSION = '2026-11-09.6';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
+const APP_VERSION = '2026-11-10.1';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
 const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
@@ -500,6 +499,12 @@ async function lineQr() {
   try { const r = await liff.scanCodeV2(); if (r && r.value) { scan.hn = normHN(r.value); render(); } }
   catch (e) { toast('สแกนด้วย LINE ไม่ได้ ใช้ “สแกนกล้อง” แทน'); }
 }
+let qrP = null;
+function loadQr() {   // โหลดตัวอ่านบาร์โค้ดเมื่อกดสแกนครั้งแรกเท่านั้น ไม่หน่วงตอนเปิดแอป
+  if (window.Html5Qrcode) return Promise.resolve(true);
+  if (!qrP) qrP = new Promise((ok) => { const el = document.createElement('script'); el.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'; el.onload = () => ok(!!window.Html5Qrcode); el.onerror = () => { qrP = null; ok(false); }; document.head.appendChild(el); });
+  return qrP;
+}
 async function startCamera() { await withBusy(startCameraInner); }
 // สลับไปกล้องหลังตัวถัดไป (บางรุ่นเลนส์หลักไม่ถูกเลือกอัตโนมัติ) และจำตัวที่เลือกไว้
 async function switchCamera() {
@@ -508,7 +513,7 @@ async function switchCamera() {
   await startCamera();
 }
 async function startCameraInner() {
-  if (!window.Html5Qrcode) { toast('เปิดกล้องไม่ได้ กด “พิมพ์เอง” แทน'); return; }
+  if (!(await loadQr())) { toast('เปิดกล้องไม่ได้ กด “พิมพ์เอง” แทน'); return; }
   try {
     // ลดชนิดบาร์โค้ดที่ลองอ่านให้เหลือที่ใช้บ่อย ช่วยลดการอ่านเพี้ยน และใช้ตัวอ่านของเบราว์เซอร์ถ้ามี (Chrome บน Android)
     const F = window.Html5QrcodeSupportedFormats || {};
@@ -547,7 +552,7 @@ async function startCameraInner() {
 async function scanImage(file) { await withBusy(() => scanImageInner(file)); }
 async function scanImageInner(file) {
   if (!file) return;
-  if (!window.Html5Qrcode) { toast('ไม่มีตัวอ่านบาร์โค้ด กด “พิมพ์เอง” แทน'); return; }
+  if (!(await loadQr())) { toast('ไม่มีตัวอ่านบาร์โค้ด กด “พิมพ์เอง” แทน'); return; }
   try { const h = new Html5Qrcode('reader'); const r = await h.scanFile(file, false); scan.hn = normHN(r); toast('อ่านได้: ' + scan.hn); }
   catch (e) { toast('อ่านบาร์โค้ดจากรูปไม่ได้ ถ่ายให้ใกล้ ชัด และตรงขึ้น หรือกด “พิมพ์เอง”'); }
   render();
@@ -563,6 +568,12 @@ async function load(quiet, silent) {
   }
 }
 window.addEventListener('resize', () => { if (mode && !scan && !mustChange) render(); });
+// กลับมาเปิดแอปจากพื้นหลัง: รีเฟรชข้อมูลทันที ไม่ต้องรอรอบ 20 วินาที (ตัวจับเวลาถูกเบราว์เซอร์หน่วงตอนอยู่พื้นหลัง)
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !mode || scan || mustChange) return;
+  render();
+  if (!busy) { await load(true, true); if (mode && !scan) render(); }
+});
 function schedule() { clearInterval(alertTimer); alertTimer = setInterval(checkAlertFeedback, 5000); clearInterval(timer); timer = setInterval(async () => { if (mode && !scan && !busy && !mustChange) { await load(true, true); render(); } else if (mode && !scan && !mustChange) render(); }, 20000); }
 async function doCall(fn, ...args) {
   if (busy) return false; busy = true; busyOn();
@@ -575,7 +586,10 @@ async function doCall(fn, ...args) {
 async function init() {
   render();
   if (!API || pendingApi) return;
-  try { CFG.liffId = (await call('apiConfig')).liffId || ''; } catch (e) { /* ใช้รหัสพนักงานแทน */ }
+  // เปิดเร็วขึ้น: จำ liffId ไว้ในเครื่อง ไม่ต้องรอ apiConfig ก่อนทุกครั้ง (ถ้ามี session เดิมอยู่แล้ว) แล้วอัปเดตค่าเบื้องหลัง
+  CFG.liffId = store.get('liffId') || '';
+  const cfgP = qcall('apiConfig').then((c) => { const id = (c && c.liffId) || ''; store.set('liffId', id); return id; }).catch(() => null);
+  if (!CFG.liffId && !sess.get('tok')) { const id = await cfgP; if (id) CFG.liffId = id; }
   if (CFG.liffId && window.liff) {
     try { await liff.init({ liffId: CFG.liffId }); if (liff.isLoggedIn()) mode = 'line'; } catch (e) { /* ใช้รหัสพนักงานแทน */ }
   }
