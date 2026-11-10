@@ -128,7 +128,7 @@ button:disabled{opacity:.45;cursor:default}
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 /* ---------- ตั้งค่า ---------- */
-const APP_VERSION = '2026-11-10.5';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
+const APP_VERSION = '2026-11-10.6';   // แสดงที่หน้าเข้าสู่ระบบ ไว้เช็คว่าเปิดเวอร์ชันล่าสุดอยู่
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const qs = new URLSearchParams(location.search);
 const API_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_\-]+\/(exec|dev)$/;
@@ -284,14 +284,15 @@ function tones(count, gap, delay) {   // เสียงปี๊บสั้น
     o.connect(g); g.connect(audioCtx.destination); o.start(t + d); o.stop(t + d + 0.25);
   }
 }
-// พูด "Lab alert" ครั้งเดียว แล้วตามด้วยเสียงปี๊บจนครบประมาณ 3 วินาที (ถ้าพูดไม่ได้ ใช้ปี๊บล้วน 3 วินาที)
+// ปี๊บก่อน แล้วพูด "Lab alert" ครั้งเดียวเป็นช่วงสุดท้าย รวมประมาณ 3 วินาที (ถ้าพูดไม่ได้ ใช้ปี๊บล้วน 3 วินาที)
 function beep() {
   if (navigator.vibrate) { try { navigator.vibrate(VIBE); } catch (e) {} }
   if (!soundOn) return false;
   const ctxOK = audioCtx && audioCtx.state === 'running';
-  const spoke = speakAlert(1);
-  if (ctxOK) { if (spoke) tones(4, 0.45, 1.2); else tones(6, 0.5, 0); }
-  return spoke || ctxOK;
+  const canSpeak = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
+  if (ctxOK) tones(6, canSpeak ? 0.28 : 0.5, 0);
+  if (canSpeak) setTimeout(() => speakAlert(1), ctxOK ? 1800 : 0);
+  return canSpeak || ctxOK;
 }
 const notifyOK = () => 'Notification' in window && 'serviceWorker' in navigator && Notification.permission === 'granted';
 async function showNotice(p) {
