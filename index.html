@@ -280,8 +280,9 @@ function beep() {
   if (navigator.vibrate) { try { navigator.vibrate(VIBE); } catch (e) {} }
   if (!soundOn) return false;
   const ctxOK = audioCtx && audioCtx.state === 'running';
-  if (ctxOK) tones(3, 0.3);
-  if (!(window.speechSynthesis && window.SpeechSynthesisUtterance)) { if (ctxOK) tones(6, 0.5); return ctxOK; }
+  const canSpeak = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
+  if (ctxOK) tones(canSpeak ? 3 : 6, canSpeak ? 0.3 : 0.5);
+  if (!canSpeak) return ctxOK;
   setTimeout(() => speakAlert(2), ctxOK ? 1000 : 0);
   return true;
 }
