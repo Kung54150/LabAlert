@@ -20,6 +20,19 @@ self.addEventListener('fetch', (e) => {
   );
 });
 
+// พุชจากเซิร์ฟเวอร์ (FCM): เด้งแจ้งเตือนแม้ปิดหน้าแอป ใช้ tag เดียวกับการแจ้งเตือนในแอป จึงไม่เด้งซ้ำ
+self.addEventListener('push', (e) => {
+  let j = {};
+  try { j = e.data ? e.data.json() : {}; } catch (x) { j = {}; }
+  const d = j.data || j || {};
+  const hn = String(d.hn || '');
+  e.waitUntil(self.registration.showNotification(d.title || ('LabAlert · HN ' + hn), {
+    body: d.body || 'ครบเวลา ยังไม่มีผู้ตามผล',
+    tag: 'case-' + (d.id || hn || 'x'), renotify: true, requireInteraction: true,
+    icon: 'icon-192.png', badge: 'icon-192.png', vibrate: [900, 100, 900, 100, 900], data: { hn: hn }
+  }));
+});
+
 // กดที่การแจ้งเตือน: ดึงหน้าแอปที่เปิดอยู่ขึ้นมา (หรือเปิดใหม่) แล้วไปที่รายการนั้น
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
