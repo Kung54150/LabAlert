@@ -480,7 +480,7 @@ function scanSheet() {
   const chips = [[45, '45 นาที'], [60, '1 ชม.'], [90, '1.5 ชม.'], [120, '2 ชม.']].map(([m, l]) => '<button data-wait="' + m + '" class="' + (scan.wait === m ? 'sel' : '') + '">' + l + '</button>').join('') +
     '<button data-wait="custom" class="' + (scan.wait === 'custom' ? 'sel' : '') + '">กำหนดเอง</button>';
   return '<div class="sheet-bg"><div class="sheet"><div class="row"><b>เพิ่มผู้ป่วยเข้าคิว</b><button data-act="closescan">ปิด</button></div><div id="reader"></div>' +
-    '<div class="row g"><button data-act="camera">สแกนกล้อง</button><button data-act="photo">ถ่ายรูป</button><button data-act="padtoggle"' + (scan.pad ? ' class="primary"' : '') + '>พิมพ์เอง</button>' + (inLine() ? '<button data-act="lineqr">QR LINE</button>' : '') + '</div>' +
+    '<div class="row g"><button data-act="camera">สแกนกล้อง</button><button data-act="switchcam">สลับกล้อง</button><button data-act="photo">ถ่ายรูป</button><button data-act="padtoggle"' + (scan.pad ? ' class="primary"' : '') + '>พิมพ์เอง</button>' + (inLine() ? '<button data-act="lineqr">QR LINE</button>' : '') + '</div>' +
     '<input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
     '<div id="hnbox" class="hnbox mono ' + (scan.hn ? '' : 'empty-hn') + '">' + (scan.hn ? esc(scan.hn) : 'ยังไม่มี HN') + '</div>' + (scan.pad ? padHTML(true) : '') +
     '<div class="chips" role="group" aria-label="เวลาที่ให้แจ้งเตือน">' + chips + '</div>' +
@@ -501,6 +501,12 @@ async function lineQr() {
   catch (e) { toast('สแกนด้วย LINE ไม่ได้ ใช้ “สแกนกล้อง” แทน'); }
 }
 async function startCamera() { await withBusy(startCameraInner); }
+// สลับไปกล้องหลังตัวถัดไป (บางรุ่นเลนส์หลักไม่ถูกเลือกอัตโนมัติ) และจำตัวที่เลือกไว้
+async function switchCamera() {
+  let i = 0; try { i = (+localStorage.getItem('labalert_cam') || 0) + 1; localStorage.setItem('labalert_cam', String(i)); } catch (e) { i = 1; }
+  try { if (window._h) await window._h.stop(); } catch (e) {}
+  await startCamera();
+}
 async function startCameraInner() {
   if (!window.Html5Qrcode) { toast('เปิดกล้องไม่ได้ กด “พิมพ์เอง” แทน'); return; }
   try {
@@ -514,9 +520,12 @@ async function startCameraInner() {
     let cam = { facingMode: 'environment' };
     try {
       const cams = await Html5Qrcode.getCameras();
-      const backs = (cams || []).filter((c) => /back|rear|environment|หลัง/i.test(c.label || ''));
+      let backs = (cams || []).filter((c) => /back|rear|environment|หลัง/i.test(c.label || ''));
+      if (!backs.length) backs = cams || [];
       const bad = /wide|ultra|macro|tele|depth|mono|0\.5|zoom/i;
-      const main = backs.find((c) => !bad.test(c.label)) || backs[0];
+      let saved = null; try { saved = localStorage.getItem('labalert_cam'); } catch (e) {}
+      const main = saved !== null && backs.length ? backs[(+saved || 0) % backs.length] : (backs.find((c) => !bad.test(c.label)) || backs[0]);
+      if (backs.length > 1) toast('กล้อง ' + (backs.indexOf(main) + 1) + '/' + backs.length + ' (กด “สลับกล้อง” ถ้าภาพไม่ชัด)');
       if (main && main.id) cam = { deviceId: { exact: main.id } };
     } catch (e) { /* ใช้ facingMode ตามเดิม */ }
     const cfg = { fps: 10, qrbox: { width: 300, height: 120 }, videoConstraints: { ...cam, width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: 'continuous' }] } };
@@ -640,6 +649,7 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'install') { if (deferredInstall) { deferredInstall.prompt(); try { await deferredInstall.userChoice; } catch (x) {} deferredInstall = null; render(); } return; }
   if (d.act === 'hideinstall') { store.set('hideInstall', '1'); render(); return; }
   if (d.act === 'camera') { await startCamera(); return; }
+  if (d.act === 'switchcam') { await switchCamera(); return; }
   if (d.act === 'lineqr') { await lineQr(); return; }
   if (d.act === 'photo') { document.getElementById('scanFile').click(); return; }
   if (d.act === 'savescan') {
