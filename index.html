@@ -513,7 +513,7 @@ function scanSheet() {
     '<div class="row g"><button data-act="camera">สแกนกล้อง</button><button data-act="switchcam">สลับกล้อง</button><button data-act="photo">ถ่ายรูป</button><button data-act="padtoggle"' + (scan.pad ? ' class="primary"' : '') + '>พิมพ์เอง</button>' + (inLine() ? '<button data-act="lineqr">QR LINE</button>' : '') + '</div>' +
     '<input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
     '<div id="hnbox" class="hnbox mono ' + (scan.hn ? '' : 'empty-hn') + '">' + (scan.hn ? esc(scan.hn) : 'ยังไม่มี HN') + '</div>' + (scan.pad ? padHTML(true) : '') +
-    '<input id="scanName" class="nmin" maxlength="5" autocomplete="off" placeholder="ชื่อ (ไม่บังคับ แสดงไม่เกิน 5 ตัวอักษร)" value="' + esc(scan.name || '') + '">' +
+    '<input id="scanName" class="nmin" autocomplete="off" placeholder="ชื่อ (ไม่บังคับ พิมพ์ได้ยาว ระบบเก็บและแสดงแค่ 5 ตัวแรก)" value="' + esc(scan.name || '') + '">' +
     '<div class="chips" role="group" aria-label="เวลาที่ให้แจ้งเตือน">' + chips + '</div>' +
     (scan.wait === 'custom' ? '<div class="step"><button data-cust="-5">−5</button><b class="mono" id="custv">' + scanWait() + ' นาที</b><button data-cust="5">+5</button></div>' : '') +
     '<div class="muted" id="scanDue">แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')</div>' +
