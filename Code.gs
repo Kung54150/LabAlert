@@ -376,8 +376,8 @@ function normHn_(v) {
   return /^\d{5,10}$/.test(d) ? d.slice(0, 2) + '-' + d.slice(2) : t;
 }
 
-/** ชื่อผู้ป่วยเก็บและแสดงเพียง 6 ตัวอักษรแรก (ตัดตั้งแต่ตอนบันทึก ชื่อเต็มไม่ถูกเก็บ) ฝั่งหน้าจอต่อท้ายด้วย ... */
-const NAME_MAX = 6;
+/** ชื่อผู้ป่วยเก็บและแสดงเพียง 5 ตัวอักษรแรก (ตัดตั้งแต่ตอนบันทึก ชื่อเต็มไม่ถูกเก็บ) ฝั่งหน้าจอต่อท้ายด้วย ... */
+const NAME_MAX = 5;
 function shortName_(v) {
   return Array.from(String(v == null ? '' : v).replace(/\s+/g, ' ').trim().replace(/^[=+\-@]+/, '')).slice(0, NAME_MAX).join('');
 }

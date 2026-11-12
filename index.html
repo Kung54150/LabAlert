@@ -162,8 +162,8 @@ const normHN = (v) => {
 };
 const dur = (m) => m < 60 ? m + ' นาที' : ((m / 60) % 1 ? (m / 60).toFixed(1) : m / 60) + ' ชม.';
 const clean = (s) => String(s || '').replace(/(\s*\((แอป|LINE)\))+\s*$/, (m) => (/แอป/.test(m) ? ' (แอป)' : ''));
-// ชื่อแสดงไม่เกิน 6 ตัวอักษร ต่อท้าย ... ให้รู้ว่าไม่ใช่ชื่อเต็ม
-const nameTag = (p) => p.name ? '<span class="nm">' + esc(Array.from(String(p.name)).slice(0, 6).join('')) + '...</span>' : '';
+// ชื่อแสดงไม่เกิน 5 ตัวอักษร ต่อท้าย ... ให้รู้ว่าไม่ใช่ชื่อเต็ม
+const nameTag = (p) => p.name ? '<span class="nm">' + esc(Array.from(String(p.name)).slice(0, 5).join('')) + '...</span>' : '';
 const mins = (ms) => Math.max(0, Math.round(ms / 60000));
 
 /* ---------- สถานะ ---------- */
@@ -513,7 +513,7 @@ function scanSheet() {
     '<div class="row g"><button data-act="camera">สแกนกล้อง</button><button data-act="switchcam">สลับกล้อง</button><button data-act="photo">ถ่ายรูป</button><button data-act="padtoggle"' + (scan.pad ? ' class="primary"' : '') + '>พิมพ์เอง</button>' + (inLine() ? '<button data-act="lineqr">QR LINE</button>' : '') + '</div>' +
     '<input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
     '<div id="hnbox" class="hnbox mono ' + (scan.hn ? '' : 'empty-hn') + '">' + (scan.hn ? esc(scan.hn) : 'ยังไม่มี HN') + '</div>' + (scan.pad ? padHTML(true) : '') +
-    '<input id="scanName" class="nmin" maxlength="6" autocomplete="off" placeholder="ชื่อ (ไม่บังคับ แสดงไม่เกิน 6 ตัวอักษร)" value="' + esc(scan.name || '') + '">' +
+    '<input id="scanName" class="nmin" maxlength="5" autocomplete="off" placeholder="ชื่อ (ไม่บังคับ แสดงไม่เกิน 5 ตัวอักษร)" value="' + esc(scan.name || '') + '">' +
     '<div class="chips" role="group" aria-label="เวลาที่ให้แจ้งเตือน">' + chips + '</div>' +
     (scan.wait === 'custom' ? '<div class="step"><button data-cust="-5">−5</button><b class="mono" id="custv">' + scanWait() + ' นาที</b><button data-cust="5">+5</button></div>' : '') +
     '<div class="muted" id="scanDue">แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')</div>' +
@@ -687,7 +687,7 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'export') { expo = expo ? null : { from: doneDay || snap.today, to: doneDay || snap.today }; render(); return; }
   if (d.q != null && expo) {
     const t = snap.today; expo.to = t;
-    expo.from = d.q === 'm' ? t.slice(0, 6) + '01' : shiftDay(t, -(+d.q));
+    expo.from = d.q === 'm' ? t.slice(0, 5) + '01' : shiftDay(t, -(+d.q));
     render(); return;
   }
   if (d.act === 'expx') { expo = null; render(); return; }
@@ -718,7 +718,7 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'lineqr') { await lineQr(); return; }
   if (d.act === 'photo') { document.getElementById('scanFile').click(); return; }
   if (d.act === 'savescan') {
-    const hn = normHN(scan.hn), w = scanWait(), nm = Array.from(String(scan.name || '').trim()).slice(0, 6).join('');
+    const hn = normHN(scan.hn), w = scanWait(), nm = Array.from(String(scan.name || '').trim()).slice(0, 5).join('');
     if (!/^[0-9A-Za-z\-\/]{3,20}$/.test(hn)) { toast('กรอก HN ก่อน (สแกนหรือกด “พิมพ์เอง”)'); return; }
     if (await doCall('apiAdd', hn, w, nm)) { scan = null; hl = ''; tab = 'wait'; toast('เพิ่ม HN ' + hn + ' แล้ว แจ้งเตือน ' + fmt(nowMs() + w * 60000)); render(); }
     return;
