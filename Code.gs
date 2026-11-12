@@ -23,7 +23,7 @@ const QUOTA_RESERVE = 40;          // โควตา LINE ที่เหลื
 const STALE_HOURS = 24;         // รายการที่ยังไม่พิมพ์ผลเกินกี่ชั่วโมงให้ย้ายไปแท็บเสร็จสิ้นของวันที่ลงทะเบียน และหยุดแจ้งเตือน
 const SCHEMA = {
   Patients: ['id', 'queue', 'hn', 'registered_at', 'wait_min', 'next_alert_at', 'alert_count',
-             'last_alert_at', 'registered_by', 'printed_at', 'printed_by', 'line_count', 'last_line_at', 'fcm_at'],
+             'last_alert_at', 'registered_by', 'printed_at', 'printed_by', 'line_count', 'last_line_at', 'fcm_at', 'name'],
   FollowUps: ['id', 'patient_id', 'n', 'at', 'by', 'via', 'ext_min'],
   Staff: ['code', 'name', 'role', 'pin_hash', 'salt', 'temp_pin', 'updated_at'],
   Sessions: ['hash', 'code', 'role', 'must', 'created_at', 'expires_at'],
@@ -315,7 +315,7 @@ function snapshot_(day) {
   const list = readAll_('Patients')
     .filter((r) => r.id && keep(r))
     .map((r) => ({
-      id: r.id, queue: +r.queue, hn: String(r.hn), reg: ms_(r.registered_at), wait: +r.wait_min,
+      id: r.id, queue: +r.queue, hn: String(r.hn), name: shortName_(r.name), reg: ms_(r.registered_at), wait: +r.wait_min,
       next: ms_(r.next_alert_at), alerts: +r.alert_count || 0, lastAlert: ms_(r.last_alert_at),
       regBy: r.registered_by, pr: ms_(r.printed_at), prBy: r.printed_by,
       stale: !ms_(r.printed_at) && now - ms_(r.registered_at) >= staleMs,
@@ -376,7 +376,13 @@ function normHn_(v) {
   return /^\d{5,10}$/.test(d) ? d.slice(0, 2) + '-' + d.slice(2) : t;
 }
 
-function apiAdd(auth, hn, waitMin) {
+/** ชื่อผู้ป่วยเก็บและแสดงเพียง 5 ตัวอักษรแรก (ตัดตั้งแต่ตอนบันทึก ชื่อเต็มไม่ถูกเก็บ) ฝั่งหน้าจอต่อท้ายด้วย ... */
+const NAME_MAX = 5;
+function shortName_(v) {
+  return Array.from(String(v == null ? '' : v).replace(/\s+/g, ' ').trim().replace(/^[=+\-@]+/, '')).slice(0, NAME_MAX).join('');
+}
+
+function apiAdd(auth, hn, waitMin, name) {
   const w = who_(auth);
   hn = normHn_(hn);
   waitMin = Math.round(+waitMin);
@@ -390,7 +396,7 @@ function apiAdd(auth, hn, waitMin) {
       .reduce((m, r) => Math.max(m, +r.queue || 0), 0) + 1;
     const now = new Date();
     append_('Patients', {
-      id: Utilities.getUuid(), queue: queue, hn: hn, registered_at: now, wait_min: waitMin,
+      id: Utilities.getUuid(), queue: queue, hn: hn, registered_at: now, wait_min: waitMin, name: shortName_(name),
       next_alert_at: new Date(now.getTime() + waitMin * 60000), alert_count: 0, registered_by: w.name,
     });
     log_(w.name, 'register', 'HN ' + hn + ' wait ' + waitMin + ' via ' + w.via);

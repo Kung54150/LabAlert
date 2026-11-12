@@ -93,6 +93,8 @@ button:disabled{opacity:.45;cursor:default}
 .sheet{background:var(--surface);width:min(440px,100%);border-radius:14px 14px 0 0;padding:10px max(12px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:7px;max-height:94%;overflow:auto}
 @media(min-width:600px){.sheet-bg{align-items:center}.sheet{border-radius:14px}}
 .hnbox{font-size:1.5rem;font-weight:600;text-align:center;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);min-height:2.4rem}
+.nm{color:var(--muted);font-size:.85rem;margin-left:6px;font-weight:400}
+.nmin{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%;box-sizing:border-box}
 .hnbox.empty-hn{color:var(--muted);font-size:.9rem;font-weight:400;padding-top:11px}
 .row{display:flex;gap:6px;align-items:center;justify-content:space-between}
 .row.g button{flex:1}
@@ -160,6 +162,8 @@ const normHN = (v) => {
 };
 const dur = (m) => m < 60 ? m + ' นาที' : ((m / 60) % 1 ? (m / 60).toFixed(1) : m / 60) + ' ชม.';
 const clean = (s) => String(s || '').replace(/(\s*\((แอป|LINE)\))+\s*$/, (m) => (/แอป/.test(m) ? ' (แอป)' : ''));
+// ชื่อแสดงไม่เกิน 5 ตัวอักษร ต่อท้าย ... ให้รู้ว่าไม่ใช่ชื่อเต็ม
+const nameTag = (p) => p.name ? '<span class="nm">' + esc(Array.from(String(p.name)).slice(0, 5).join('')) + '...</span>' : '';
 const mins = (ms) => Math.max(0, Math.round(ms / 60000));
 
 /* ---------- สถานะ ---------- */
@@ -358,7 +362,7 @@ function rowM(p, admin, n) {   // มือถือ: 2 บรรทัดต่
   if (p.pr) parts.push('พิมพ์ ' + fmt(p.pr));
   const extra = admin && s === 'due' && !acked(p) && cs != null ? ' · <b class="red">รอตอบรับ ' + mins(nowMs() - cs) + 'น.</b>' : '';
   const btns = s === 'done' ? '' : '<span class="btns"><button class="' + (s === 'due' && !acked(p) ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></span>';
-  return '<div class="r ' + s + (s === 'due' && !acked(p) ? ' hot' : '') + (isHlRow(p) ? ' hl' : '') + '"><div class="l1"><span class="q">' + n + '</span><span class="hn mono">' + esc(normHN(p.hn)) + '</span>' + chip(p) + btns + '</div>' +
+  return '<div class="r ' + s + (s === 'due' && !acked(p) ? ' hot' : '') + (isHlRow(p) ? ' hl' : '') + '"><div class="l1"><span class="q">' + n + '</span><span class="hn mono">' + esc(normHN(p.hn)) + '</span>' + nameTag(p) + chip(p) + btns + '</div>' +
     '<div class="l2" data-hist="' + esc(p.id) + '">' + parts.join(' · ') + extra + ' ' + (open ? '▴' : '▾') + '</div>' + (open ? histHTML(p, admin) : '') + '</div>';
 }
 function tableW(list, admin) {   // คิวนับ 1 ใหม่ในแต่ละแท็บ   // PC: 1 คนต่อ 1 บรรทัด
@@ -366,7 +370,7 @@ function tableW(list, admin) {   // คิวนับ 1 ใหม่ในแ�
   const body = list.map((p, i) => {
     const s = cat(p), cs = cycleStart(p), lf = p.fols[p.fols.length - 1], open = openH[p.id];
     const acts = s === 'done' ? '' : '<div class="acts"><button class="' + (s === 'due' && !acked(p) ? 'primary' : '') + '" data-do="follow" data-id="' + esc(p.id) + '">ตามผล</button><button data-do="print" data-id="' + esc(p.id) + '">พิมพ์ผล</button></div>';
-    return '<tr class="' + s + (s === 'due' && !acked(p) ? ' hot' : '') + (isHlRow(p) ? ' hl' : '') + '"><td class="mono">' + (i + 1) + '</td><td class="mono"><b>' + esc(normHN(p.hn)) + '</b></td>' +
+    return '<tr class="' + s + (s === 'due' && !acked(p) ? ' hot' : '') + (isHlRow(p) ? ' hl' : '') + '"><td class="mono">' + (i + 1) + '</td><td class="mono"><b>' + esc(normHN(p.hn)) + '</b>' + nameTag(p) + '</td>' +
       '<td class="mono">' + fmt(p.reg) + ' <span class="muted">' + esc(clean(p.regBy)) + '</span></td><td class="mono">' + fmt(dueAt(p)) + ' <span class="muted">(รอ ' + dur(p.wait) + ')</span></td><td>' + chip(p) + '</td>' +
       (admin ? '<td class="mono">' + (s === 'due' && !acked(p) && cs != null ? '<b style="color:var(--crit)">' + mins(nowMs() - cs) + ' นาที</b>' : '–') + '</td>' : '') +
       '<td class="mono">' + (lf ? p.fols.length + '× ล่าสุด ' + fmt(lf.at) + ' <span class="muted">' + esc(clean(lf.by)) + '</span>' : '–') + '</td>' +
@@ -509,6 +513,7 @@ function scanSheet() {
     '<div class="row g"><button data-act="camera">สแกนกล้อง</button><button data-act="switchcam">สลับกล้อง</button><button data-act="photo">ถ่ายรูป</button><button data-act="padtoggle"' + (scan.pad ? ' class="primary"' : '') + '>พิมพ์เอง</button>' + (inLine() ? '<button data-act="lineqr">QR LINE</button>' : '') + '</div>' +
     '<input type="file" id="scanFile" accept="image/*" capture="environment" hidden>' +
     '<div id="hnbox" class="hnbox mono ' + (scan.hn ? '' : 'empty-hn') + '">' + (scan.hn ? esc(scan.hn) : 'ยังไม่มี HN') + '</div>' + (scan.pad ? padHTML(true) : '') +
+    '<input id="scanName" class="nmin" maxlength="5" autocomplete="off" placeholder="ชื่อ (ไม่บังคับ แสดงไม่เกิน 5 ตัวอักษร)" value="' + esc(scan.name || '') + '">' +
     '<div class="chips" role="group" aria-label="เวลาที่ให้แจ้งเตือน">' + chips + '</div>' +
     (scan.wait === 'custom' ? '<div class="step"><button data-cust="-5">−5</button><b class="mono" id="custv">' + scanWait() + ' นาที</b><button data-cust="5">+5</button></div>' : '') +
     '<div class="muted" id="scanDue">แจ้งเตือนเวลา <b class="mono">' + fmt(nowMs() + scanWait() * 60000) + '</b> (รอ ' + dur(scanWait()) + ')</div>' +
@@ -682,7 +687,7 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'export') { expo = expo ? null : { from: doneDay || snap.today, to: doneDay || snap.today }; render(); return; }
   if (d.q != null && expo) {
     const t = snap.today; expo.to = t;
-    expo.from = d.q === 'm' ? t.slice(0, 6) + '01' : shiftDay(t, -(+d.q));
+    expo.from = d.q === 'm' ? t.slice(0, 5) + '01' : shiftDay(t, -(+d.q));
     render(); return;
   }
   if (d.act === 'expx') { expo = null; render(); return; }
@@ -713,15 +718,16 @@ document.addEventListener('click', async (e) => {
   if (d.act === 'lineqr') { await lineQr(); return; }
   if (d.act === 'photo') { document.getElementById('scanFile').click(); return; }
   if (d.act === 'savescan') {
-    const hn = normHN(scan.hn), w = scanWait();
+    const hn = normHN(scan.hn), w = scanWait(), nm = Array.from(String(scan.name || '').trim()).slice(0, 5).join('');
     if (!/^[0-9A-Za-z\-\/]{3,20}$/.test(hn)) { toast('กรอก HN ก่อน (สแกนหรือกด “พิมพ์เอง”)'); return; }
-    if (await doCall('apiAdd', hn, w)) { scan = null; hl = ''; tab = 'wait'; toast('เพิ่ม HN ' + hn + ' แล้ว แจ้งเตือน ' + fmt(nowMs() + w * 60000)); render(); }
+    if (await doCall('apiAdd', hn, w, nm)) { scan = null; hl = ''; tab = 'wait'; toast('เพิ่ม HN ' + hn + ' แล้ว แจ้งเตือน ' + fmt(nowMs() + w * 60000)); render(); }
     return;
   }
   if (d.do === 'follow') { if (await doCall('apiFollow', d.id)) { hlMode = ''; hl = ''; toast('บันทึกตามผลแล้ว ระบบแจ้งอีกครั้งใน 10 นาที'); render(); } return; }
   if (d.do === 'print') { if (await doCall('apiPrint', d.id)) { toast('บันทึกพิมพ์ผลแล้ว ย้ายไปแท็บเสร็จสิ้น'); render(); } return; }
   if (d.hist) { openH[d.hist] = !openH[d.hist]; render(); return; }
 });
+document.addEventListener('input', (e) => { if (e.target && e.target.id === 'scanName' && scan) scan.name = e.target.value; });
 document.addEventListener('click', (e) => { const l = e.target.closest && e.target.closest('.l2'); if (l && l.dataset.hist) { openH[l.dataset.hist] = !openH[l.dataset.hist]; render(); } });
 boot();
 </script>
