@@ -271,10 +271,13 @@ function cuteVoice(u) {
     if (v) u.voice = v;
   } catch (e) {}
 }
-function speakAlert(n) {   // พูดว่า "Lab alert" n ครั้ง คืน true ถ้าเริ่มพูดได้
+let lastSpeakAt = 0, lastBeepRun = 0;
+function speakAlert(n) {   // พูดว่า "Lab alert" n ครั้ง คืน true ถ้าเริ่มพูดได้ (ไม่พูดซ้ำถ้าเพิ่งพูดไปไม่ถึง 5 วินาที)
   try {
     const ss = window.speechSynthesis; if (!ss || !window.SpeechSynthesisUtterance) return false;
-    ss.cancel();
+    if (Date.now() - lastSpeakAt < 5000) return true;
+    lastSpeakAt = Date.now();
+    if (ss.speaking || ss.pending) ss.cancel();
     for (let i = 0; i < n; i++) { const u = new SpeechSynthesisUtterance('Lab alert'); cuteVoice(u); ss.speak(u); }
     return true;
   } catch (e) { return false; }
@@ -290,6 +293,8 @@ function tones(count, gap, delay) {   // เสียงปี๊บสั้น
 }
 // ปี๊บก่อน แล้วพูด "Lab alert" ครั้งเดียวเป็นช่วงสุดท้าย รวมประมาณ 3 วินาที (ถ้าพูดไม่ได้ ใช้ปี๊บล้วน 3 วินาที)
 function beep() {
+  if (Date.now() - lastBeepRun < 4000) return true;   // กันเรียกซ้อนกัน เสียงจะได้เล่นรอบเดียว
+  lastBeepRun = Date.now();
   if (navigator.vibrate) { try { navigator.vibrate(VIBE); } catch (e) {} }
   if (!soundOn) return false;
   const ctxOK = audioCtx && audioCtx.state === 'running';
