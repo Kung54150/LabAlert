@@ -15,7 +15,8 @@
  */
 const REPEAT_MIN = 10;          // รอบแจ้งเตือนในแอป (เสียง/ป้ายกระพริบ) ซ้ำเมื่อไม่มีใครตอบ ใช้ฟรีไม่จำกัด
 // LINE ใช้โควตาข้อความ (แพ็กเกจฟรี 300 ข้อความ/เดือน และนับตามจำนวนสมาชิกในกลุ่ม) จึงส่งเฉพาะกรณีเลยกำหนดแล้วไม่มีใครตามผล
-const LINE_FIRST_AFTER_MIN = 10;   // เลยกำหนด (และไม่มีใครตามผล) นานเท่านี้จึงส่ง LINE กล่องแรก
+const LINE_ENABLED = false;        // false = ไม่ส่งแชตบอทเข้ากลุ่ม LINE เลย (เปลี่ยนเป็น true เพื่อเปิดใหม่)
+const LINE_FIRST_AFTER_MIN = 10;  // เลยกำหนด (และไม่มีใครตามผล) นานเท่านี้จึงส่ง LINE กล่องแรก
 const LINE_REPEAT_MIN = 30;        // ถ้ายังไม่มีใครตามผล ส่งเตือนอีกครั้งหลังกล่องก่อนหน้ากี่นาที
 const LINE_MAX_PER_CASE = 2;       // ส่ง LINE ได้สูงสุดกี่กล่องต่อ 1 ราย
 const SESSION_DAYS = 30;           // เข้าสู่ระบบค้างไว้กี่วัน (จนกว่าจะกดออกเอง) เปิดจากการแจ้งเตือนแล้วไม่ต้องใส่รหัสซ้ำ
@@ -576,6 +577,7 @@ function checkAlerts() {
     readAll_('FollowUps').forEach((f) => { (folMap[f.patient_id] = folMap[f.patient_id] || []).push(ms_(f.at)); });
     Object.keys(folMap).forEach((k) => folMap[k].sort((a, b) => a - b));
     try { fcmAlerts_(rows, folMap, now); } catch (err) { log_('system', 'fcm_error', String(err).slice(0, 200)); }
+    if (!LINE_ENABLED) return;   // ปิดการส่ง LINE เข้ากลุ่ม (ยังเตือนในแอป/พุชตามปกติ)
     if (!(prop_('LINE_TOKEN') && prop_('GROUP_ID'))) return;
     const todo = lineEscalations_(rows, folMap, now);
     const quota = lineQuotaStatus_();   // ถามที่นี่เพื่อให้แอปแสดงโควตาที่เหลืออัปเดตอยู่เสมอ
